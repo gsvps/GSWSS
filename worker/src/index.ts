@@ -29,8 +29,8 @@ app.use("*", async (c, next) => {
 
 app.get("/auth", (c) => handleAuth(c.req.raw, c.env));
 
-/** Proxied content for iframe (HTML links rewritten to /fetch). */
-app.get("/fetch", (c) => handleURLProxy(c.req.raw, c.env));
+/** Proxied content for iframe (HTML/JS/CSS/API rewritten to /fetch). */
+app.all("/fetch", (c) => handleURLProxy(c.req.raw, c.env));
 
 /** Browse shell with toolbar + iframe. */
 app.get("/", (c) => {

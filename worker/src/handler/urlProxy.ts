@@ -1,6 +1,6 @@
 import { validateFetchURL } from "../auth/validate";
 import { checkRateLimit } from "../auth/rateLimit";
-import { isHTML, rewriteHTML } from "./htmlRewrite";
+import { isHTML, isRewritableResource, rewriteHTML, rewriteResource } from "./htmlRewrite";
 
 export interface Env {
   PASSWORD: string;
@@ -21,9 +21,24 @@ const SKIP_RESP_HEADERS = new Set([
   "x-frame-options",
 ]);
 
+const BLOCKED_REQ_HEADERS = new Set([
+  "host",
+  "connection",
+  "cookie",
+  "content-length",
+  "transfer-encoding",
+  "cf-connecting-ip",
+  "cf-ray",
+  "cf-ipcountry",
+  "cf-visitor",
+  "x-forwarded-for",
+  "x-forwarded-proto",
+  "x-real-ip",
+]);
+
 const COOKIE_NAME = "gs_pwd";
 
-/** handleURLProxy serves GET /fetch?url=... via Worker fetch() with HTML rewriting. */
+/** handleURLProxy serves /fetch?url=... via Worker fetch() with content rewriting. */
 export async function handleURLProxy(request: Request, env: Env): Promise<Response> {
   const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
   if (!checkRateLimit(ip)) {
@@ -49,18 +64,16 @@ export async function handleURLProxy(request: Request, env: Env): Promise<Respon
     return new Response(`Bad Request: ${targetErr}`, { status: 400 });
   }
 
+  const method = request.method.toUpperCase();
+  const hasBody = method !== "GET" && method !== "HEAD";
+
   let upstream: Response;
   try {
     upstream = await fetch(target, {
-      method: "GET",
+      method,
       redirect: "follow",
-      headers: {
-        "User-Agent":
-          request.headers.get("User-Agent") ??
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        Accept: request.headers.get("Accept") ?? "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": request.headers.get("Accept-Language") ?? "en-US,en;q=0.9,zh-CN;q=0.8",
-      },
+      headers: buildUpstreamHeaders(request, target),
+      body: hasBody ? request.body : undefined,
     });
   } catch {
     return new Response("Failed to fetch target URL", { status: 502 });
@@ -71,10 +84,16 @@ export async function handleURLProxy(request: Request, env: Env): Promise<Respon
   let body: BodyInit | null = upstream.body;
   const headers = new Headers();
 
-  if (isHTML(contentType) && upstream.body) {
-    const html = await upstream.text();
-    body = rewriteHTML(html, target, origin);
-    headers.set("Content-Type", "text/html; charset=utf-8");
+  if (upstream.body && (isHTML(contentType) || isRewritableResource(contentType))) {
+    const text = await upstream.text();
+    if (isHTML(contentType)) {
+      body = rewriteHTML(text, target, origin);
+      headers.set("Content-Type", "text/html; charset=utf-8");
+    } else {
+      body = rewriteResource(text, target, origin);
+      const ct = contentType?.split(";")[0].trim() ?? "text/plain";
+      headers.set("Content-Type", contentType?.includes("charset") ? contentType : `${ct}; charset=utf-8`);
+    }
   } else {
     upstream.headers.forEach((value, key) => {
       if (!SKIP_RESP_HEADERS.has(key.toLowerCase())) {
@@ -101,6 +120,92 @@ export async function handleURLProxy(request: Request, env: Env): Promise<Respon
     statusText: upstream.statusText,
     headers,
   });
+}
+
+function buildUpstreamHeaders(request: Request, target: string): Headers {
+  const out = new Headers();
+  const defaultUA =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
+  out.set("User-Agent", request.headers.get("User-Agent") ?? defaultUA);
+
+  request.headers.forEach((value, key) => {
+    const lower = key.toLowerCase();
+    if (BLOCKED_REQ_HEADERS.has(lower) || lower.startsWith("cf-")) {
+      return;
+    }
+    if (lower === "referer" || lower === "origin") {
+      return;
+    }
+    out.set(key, value);
+  });
+
+  if (!out.has("Accept")) {
+    out.set("Accept", request.headers.get("Accept") ?? "*/*");
+  }
+  if (!out.has("Accept-Language")) {
+    out.set("Accept-Language", request.headers.get("Accept-Language") ?? "en-US,en;q=0.9,zh-CN;q=0.8");
+  }
+
+  const referer = mapProxyReferer(request.headers.get("Referer"), target);
+  if (referer) {
+    out.set("Referer", referer);
+  }
+
+  const origin = mapProxyOrigin(request.headers.get("Origin"), target);
+  if (origin) {
+    out.set("Origin", origin);
+  }
+
+  return out;
+}
+
+function mapProxyReferer(referer: string | null, target: string): string | null {
+  const mapped = unwrapProxyURL(referer);
+  if (mapped) {
+    return mapped;
+  }
+  if (!referer) {
+    try {
+      return new URL(target).origin + "/";
+    } catch {
+      return null;
+    }
+  }
+  return referer;
+}
+
+function mapProxyOrigin(origin: string | null, target: string): string | null {
+  if (origin) {
+    const mapped = unwrapProxyURL(origin);
+    if (mapped) {
+      try {
+        return new URL(mapped).origin;
+      } catch {
+        return null;
+      }
+    }
+  }
+  try {
+    return new URL(target).origin;
+  } catch {
+    return null;
+  }
+}
+
+function unwrapProxyURL(raw: string | null): string | null {
+  if (!raw) {
+    return null;
+  }
+  try {
+    const u = new URL(raw);
+    if (u.pathname === "/fetch") {
+      return u.searchParams.get("url");
+    }
+  } catch {
+    // ignore
+  }
+  return null;
 }
 
 /** handleAuth sets the password cookie and redirects back to browse shell. */
@@ -221,7 +326,7 @@ export function browseHTML(initialURL?: string): string {
     <div id="overlay">
       <div class="card">
         <h2>GS Browse</h2>
-        <p>在下方框架内通过 Worker fetch 浏览网页，链接会自动走代理。</p>
+        <p>在下方框架内通过 Worker fetch 浏览网页，链接、JS/CSS/API 请求均会自动走代理。</p>
         <label>密码</label>
         <input id="pwd" type="password" placeholder="change-me" autocomplete="current-password"/>
         <button type="button" class="btn-go" id="btnLogin" style="width:100%">登录并打开</button>
