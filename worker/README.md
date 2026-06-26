@@ -4,64 +4,51 @@ Cloudflare Worker 端，负责 WebSocket 接入、密码认证与 TCP 中继。
 
 ## 一键部署
 
-### 方式 A — 连接 GitHub 仓库（推荐）
+> [`deploy.workers.cloudflare.com`](https://deploy.workers.cloudflare.com/) 会 **fork 新仓库**到你的 GitHub。若已有本仓库，请用 **Dashboard 连接 GitHub**（方式 A）。
 
-连接你 GitHub 上 **已有的 Fork**，不会自动创建新仓库。
+### 方式 A — Dashboard 连接 GitHub（推荐）
 
-1. [Fork GSWSS](https://github.com/gsvps/GSWSS/fork)（若已有可跳过）
-2. 打开 [Cloudflare Workers & Pages](https://dash.cloudflare.com/?to=/:account/workers-and-pages)
-3. **Create application** → **Import a repository** → **Get started**
-4. 连接 GitHub，选择你的 `GSWSS` 仓库
+[![Connect GitHub & Deploy](https://img.shields.io/badge/Deploy-Connect%20GitHub%20Repo-F38020?logo=cloudflare&logoColor=white)](https://dash.cloudflare.com/?to=/%3Aaccount/workers-and-pages/create/workers/new)
+
+1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/?to=/%3Aaccount/workers-and-pages/create/workers/new)
+2. 选择 **Import a repository**
+3. 首次使用：[安装 Cloudflare GitHub App](https://github.com/apps/cloudflare-workers-and-pages/installations/new)
+4. 选择仓库 **`gsvps/GSWSS`**
 5. 配置：
 
 | 配置项 | 值 |
 |--------|-----|
 | Root directory | `worker` |
-| Build command | （留空） |
-| Deploy command | `npx wrangler deploy` |
-| Worker name | `gs-protocol-worker` |
+| Worker 名称 | `gs-protocol-worker` |
+| Deploy command | `npm run deploy` |
 
-6. 添加 Secret：`PASSWORD`
-7. **Save and Deploy**
+6. **Save and Deploy**
+7. 在 Worker → Settings → Secrets 添加 **`PASSWORD`**
 
-WebSocket 端点：`https://<your-worker>.workers.dev/ws`
+WebSocket 端点：`https://gs-protocol-worker.<subdomain>.workers.dev/ws`
 
-> Cloudflare [Deploy 按钮](https://developers.cloudflare.com/workers/platform/deploy-buttons/) 会 Fork 创建新仓库；若你已有 Fork，请用上述 Git 连接方式。
+### 方式 B — GitHub Actions
 
-<details>
-<summary>备选：Deploy 按钮（自动 Fork 新仓库）</summary>
+Fork 仓库并配置 Secrets：`CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`、`WORKER_PASSWORD`（可选）。推送 `main` 即自动部署。
 
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/gsvps/GSWSS/tree/main/worker)
-
-</details>
-
-### 方式 B — 脚本部署（Windows）
+### 方式 C — 脚本部署（Windows）
 
 ```powershell
 # 仓库根目录
 .\scripts\deploy-worker.ps1
-
-# 首次使用，先登录 Cloudflare
 .\scripts\deploy-worker.ps1 -StartLogin
-
-# 非交互指定密码
 .\scripts\deploy-worker.ps1 -Password "your-secret-password"
 ```
 
-### 方式 C — 脚本部署（Linux / macOS）
+### 方式 D — 脚本部署（Linux / macOS）
 
 ```bash
 chmod +x scripts/deploy-worker.sh
-./scripts/deploy-worker.sh
-
-# 首次登录
 ./scripts/deploy-worker.sh -l
-
-# 指定密码
 ./scripts/deploy-worker.sh -p "your-secret-password"
 ```
 
-### 方式 D — 手动部署
+### 方式 E — 手动部署
 
 ```bash
 cd worker
@@ -71,11 +58,12 @@ npx wrangler secret put PASSWORD
 npm run deploy
 ```
 
-## Git 连接构建说明
+<details>
+<summary>备选：模板部署（Fork 新仓库）</summary>
 
-本仓库为 monorepo，Worker 代码在 `worker/` 子目录。通过 Cloudflare Git 集成部署时，**必须**将 Root directory 设为 `worker`，否则构建会失败。
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/gsvps/GSWSS/tree/main/worker)
 
-Worker 名称必须与 `wrangler.toml` 中的 `name = "gs-protocol-worker"` 一致。
+</details>
 
 ## 本地开发
 
