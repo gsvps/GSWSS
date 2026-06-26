@@ -172,7 +172,7 @@ func (s *trayState) handleTest() {
 			showError("连接测试失败", err.Error())
 			return
 		}
-		showInfo("连接测试成功", fmt.Sprintf("Worker 可达且认证通过\n%s", cfg.Server))
+		showInfo("连接测试成功", fmt.Sprintf("Worker 可达且认证通过\n%s\n\n请右键托盘「启动代理」后，浏览器设置 HTTP 代理 127.0.0.1:7890", cfg.Server))
 	}()
 }
 

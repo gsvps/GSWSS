@@ -52,7 +52,7 @@ func showTestResult(mw *walk.MainWindow, err error) {
 			showErrorUI("连接测试失败", err.Error())
 			return
 		}
-		showInfoUI("连接测试成功", "Worker 可达且认证通过")
+		showInfoUI("连接测试成功", "Worker 可达且认证通过\n\n请右键托盘「启动代理」后，浏览器设置 HTTP 代理 127.0.0.1:7890")
 	}
 	if mw != nil {
 		mw.Synchronize(show)

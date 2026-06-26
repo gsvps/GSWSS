@@ -66,6 +66,11 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 		wg.Add(1)
 		go func(c net.Conn) {
 			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					log.L().Error("socks handler panic", zap.Any("recover", r))
+				}
+			}()
 			s.handleConn(ctx, c)
 		}(conn)
 	}

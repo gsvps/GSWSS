@@ -105,9 +105,14 @@ func Relay(ctx context.Context, cfg RelayConfig, targetHost string, targetPort u
 
 func waitConnectAck(ctx context.Context, conn *wsConnWrapper) error {
 	deadline := time.Now().Add(10 * time.Second)
+	attempts := 0
 	for {
 		if time.Now().After(deadline) {
 			return fmt.Errorf("connect ack timeout")
+		}
+		attempts++
+		if attempts > 50 {
+			return fmt.Errorf("connect ack: too many read attempts")
 		}
 		_ = conn.conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 		frame, err := conn.readFrame()
@@ -130,10 +135,17 @@ func waitConnectAck(ctx context.Context, conn *wsConnWrapper) error {
 			}
 			return fmt.Errorf("connect rejected (code %d): %s", ep.Code, ep.Message)
 		case protocol.TypeData:
-			// Worker may send initial data; push back is handled by relay loop — for ack, treat as success.
 			return nil
 		case protocol.TypeClose:
 			return fmt.Errorf("connect rejected: connection closed by server")
+		case protocol.TypePing:
+			pong, _ := protocol.EncodeFrame(protocol.Frame{
+				Version: protocol.Version,
+				Type:    protocol.TypePong,
+			})
+			_ = conn.writeFrame(pong)
+		case protocol.TypePong:
+			// ignore
 		default:
 			log.L().Debug("unexpected frame during connect", zap.Uint8("type", frame.Type))
 		}

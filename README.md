@@ -459,6 +459,24 @@ Worker 路由：
 
 设置 `$env:GOPROXY = "https://goproxy.cn,direct"` 后重试 `go mod tidy`。
 
+**Q: 连接测试成功，但浏览器仍无法访问 Google？**
+
+「连接测试」只验证 Worker 可达且密码正确，**不会自动开启本地代理**。请按顺序操作：
+
+1. 托盘右键 → **启动代理**（提示「运行中」）
+2. 浏览器配置代理（二选一）：
+   - **推荐 HTTP 代理：** `127.0.0.1:7890`
+   - **SOCKS5：** `127.0.0.1:1080`（须启用**远程 DNS**，Firefox 勾选「代理 DNS」；Chrome 系统代理对 SOCKS5 支持较差，建议用 HTTP 或 SwitchyOmega）
+3. 命令行测试：
+
+```powershell
+# HTTP 代理（推荐）
+curl.exe -x http://127.0.0.1:7890 https://www.google.com
+
+# SOCKS5 远程 DNS（注意是 socks5-hostname / socks5h）
+curl.exe --socks5-hostname 127.0.0.1:1080 https://www.google.com
+```
+
 **Q: SOCKS5 可用但浏览器无法访问？**
 
 确认浏览器代理类型与端口匹配（SOCKS5 → `1080`，HTTP → `7890`）。
