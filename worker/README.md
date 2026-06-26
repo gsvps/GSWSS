@@ -11,7 +11,7 @@ Cloudflare Worker 端，负责 WebSocket 接入、密码认证与 TCP 中继。
 
 ## 一键部署
 
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://dash.cloudflare.com/?to=/%3Aaccount/workers-and-pages/create/workers/new)
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://dash.cloudflare.com/?to=/%3Aaccount/workers-and-pages/create)
 
 1. **选择一种方法** → **Continue with GitHub**
 2. 选择仓库 **`gsvps/GSWSS`**

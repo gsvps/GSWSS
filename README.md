@@ -1,7 +1,7 @@
 # GSWSS — GS Protocol
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://dash.cloudflare.com/?to=/%3Aaccount/workers-and-pages/create/workers/new)
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://dash.cloudflare.com/?to=/%3Aaccount/workers-and-pages/create)
 
 面向 [Cloudflare Workers](https://developers.cloudflare.com/workers/) 设计的轻量级安全传输协议（**GSP1**）。
 
@@ -76,7 +76,7 @@ GSWSS/
 
 ## Worker 一键部署
 
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://dash.cloudflare.com/?to=/%3Aaccount/workers-and-pages/create/workers/new)
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://dash.cloudflare.com/?to=/%3Aaccount/workers-and-pages/create)
 
 点击按钮进入 Cloudflare **「选择一种方法」** 页面，按以下步骤操作：
 
