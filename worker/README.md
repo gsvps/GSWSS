@@ -9,26 +9,15 @@ Cloudflare Worker 端，负责 WebSocket 接入、密码认证与 TCP 中继。
 | `WEBSOCKET_PATH` | WebSocket 入口路径 | `/ws` |
 | `PASSWORD` | 客户端认证密码 | `change-me`（部署前请修改） |
 
-示例（根目录 `wrangler.toml`）：
-
-```toml
-[vars]
-WEBSOCKET_PATH = "/proxy"
-PASSWORD = "your-secret-password"
-```
-
-客户端对应配置：
-
-```yaml
-server: https://your-worker.workers.dev/proxy
-password: your-secret-password
-```
-
 ## 一键部署
 
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/gsvps/GSWSS/tree/main)
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://dash.cloudflare.com/?to=/%3Aaccount/workers-and-pages/create/workers/new)
 
-部署时在配置页确认 `[vars]` 中的 **WEBSOCKET_PATH** 与 **PASSWORD**。
+1. **选择一种方法** → **Continue with GitHub**
+2. 选择仓库 **`gsvps/GSWSS`**
+3. 确认 `[vars]` 中 `WEBSOCKET_PATH` 与 `PASSWORD`
+4. Deploy command = `npm run deploy`，根目录留空
+5. 点击 **Deploy**
 
 ## 手动部署
 
@@ -42,7 +31,7 @@ npm run deploy:cloudflare
 ## 本地开发
 
 ```bash
-cp .dev.vars.example .dev.vars   # 可选，覆盖 [vars]
+cp .dev.vars.example .dev.vars   # 可选
 npm install
 npm run dev
 ```
