@@ -51,9 +51,11 @@ func TestWorker(ctx context.Context, cfg RelayConfig) error {
 	connectFrame, err := protocol.EncodeFrame(protocol.Frame{
 		Version: protocol.Version,
 		Type:    protocol.TypeConnect,
+		// Cloudflare Workers disallow raw TCP to ports 80/443 in production;
+		// use a non-HTTP port to verify outbound connect() works.
 		Payload: protocol.EncodeConnectPayload(protocol.ConnectPayload{
-			Host:     "example.com",
-			Port:     80,
+			Host:     "gopher.floodgap.com",
+			Port:     70,
 			Password: cfg.Password,
 		}),
 	})
