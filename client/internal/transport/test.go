@@ -2,17 +2,13 @@ package transport
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
-
-	"github.com/gorilla/websocket"
-	"github.com/gswss/gs-protocol/protocol"
 )
 
-// TestWorker dials the worker WebSocket and verifies auth with a CONNECT probe.
+// TestWorker dials the worker WebSocket and verifies auth with a v2 SESSION + CONNECT probe.
 func TestWorker(ctx context.Context, cfg RelayConfig) error {
 	if cfg.ServerURL == "" {
 		return fmt.Errorf("server URL is required")
@@ -25,57 +21,21 @@ func TestWorker(ctx context.Context, cfg RelayConfig) error {
 		return fmt.Errorf("worker health check: %w", err)
 	}
 
-	dialer := websocket.Dialer{
-		HandshakeTimeout: 15 * time.Second,
-		TLSClientConfig: &tls.Config{
-			MinVersion: tls.VersionTLS12,
-		},
-	}
-	if !cfg.UseTLS {
-		dialer.TLSClientConfig = nil
-	}
-
-	wsURL := toWebSocketURL(cfg.ServerURL)
+	session := newMuxSession(cfg)
 	dialCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-
-	wsConn, resp, err := dialer.DialContext(dialCtx, wsURL, http.Header{"User-Agent": []string{"GS-Client/0.1"}})
-	if err != nil {
-		if resp != nil {
-			return fmt.Errorf("websocket dial (HTTP %d): %w", resp.StatusCode, err)
-		}
-		return fmt.Errorf("websocket dial: %w", err)
-	}
-	defer wsConn.Close()
-
-	connectFrame, err := protocol.EncodeFrame(protocol.Frame{
-		Version: protocol.Version,
-		Type:    protocol.TypeConnect,
-		// Cloudflare Workers disallow raw TCP to ports 80/443 in production;
-		// use a non-HTTP port to verify outbound connect() works.
-		Payload: protocol.EncodeConnectPayload(protocol.ConnectPayload{
-			Host:     "gopher.floodgap.com",
-			Port:     70,
-			Password: cfg.Password,
-		}),
-	})
-	if err != nil {
-		return fmt.Errorf("encode connect: %w", err)
-	}
-	if err := wsConn.WriteMessage(websocket.BinaryMessage, connectFrame); err != nil {
-		return fmt.Errorf("send connect: %w", err)
-	}
-
-	conn := &wsConnWrapper{conn: wsConn}
-	if err := waitConnectAck(ctx, conn); err != nil {
+	if err := session.Connect(dialCtx); err != nil {
 		return err
 	}
-	closeFrame, _ := protocol.EncodeFrame(protocol.Frame{
-		Version: protocol.Version,
-		Type:    protocol.TypeClose,
-	})
-	_ = wsConn.WriteMessage(websocket.BinaryMessage, closeFrame)
-	return nil
+	defer session.Close()
+
+	probeCtx, probeCancel := context.WithTimeout(ctx, 15*time.Second)
+	defer probeCancel()
+	stream, err := session.OpenStream(probeCtx, "gopher.floodgap.com", 70)
+	if err != nil {
+		return err
+	}
+	return stream.Close()
 }
 
 func pingWorkerHTTP(ctx context.Context, cfg RelayConfig) error {

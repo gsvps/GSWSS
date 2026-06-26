@@ -40,10 +40,11 @@ const (
 
 // Frame represents a GSP1 protocol frame.
 type Frame struct {
-	Version uint8
-	Type    uint8
-	Flags   uint16
-	Payload []byte
+	Version  uint8
+	Type     uint8
+	Flags    uint16
+	StreamID uint32 // v2 only
+	Payload  []byte
 }
 
 // ConnectPayload holds the CONNECT frame payload fields.

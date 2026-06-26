@@ -376,12 +376,18 @@ curl.exe -x http://127.0.0.1:7890 https://example.com
 | 字段 | 值 |
 |------|-----|
 | Magic | `GSP1`（`0x47535031`） |
-| Version | `1` |
+| Version | `1`（单连接）/ `2`（多路复用，推荐） |
 | 传输层 | WebSocket Binary Frame |
 | 加密 | TLS（WSS） |
-| 认证 | Password（CONNECT 帧携带） |
+| 认证 | v1：CONNECT 带密码；v2：SESSION 一次认证 + 多 Stream |
 
-**帧结构：**
+**v2 帧结构（v0.2+ 默认，多路复用）：**
+
+```
+Magic (4) + Version (1) + Type (1) + StreamID (4) + Length (4) + Payload
+```
+
+**v1 帧结构：**
 
 ```
 Magic (4) + Version (1) + Type (1) + Flags (2) + Length (4) + Payload
@@ -391,12 +397,14 @@ Magic (4) + Version (1) + Type (1) + Flags (2) + Length (4) + Payload
 
 | Type | 名称 | 说明 |
 |------|------|------|
-| 1 | CONNECT | 建立中继，携带目标地址与密码 |
+| 1 | CONNECT | 建立中继（v2：StreamID>0，仅 host+port） |
 | 2 | DATA | 二进制数据 |
-| 3 | PING | 心跳请求 |
+| 3 | PING | 心跳 |
 | 4 | PONG | 心跳响应 |
-| 5 | CLOSE | 关闭连接 |
-| 6 | ERROR | 错误（含错误码与消息） |
+| 5 | CLOSE | 关闭 Stream |
+| 6 | ERROR | 错误 |
+| 7 | SESSION | v2 会话认证（StreamID=0） |
+| 8 | SESSION_OK | v2 认证成功 |
 
 **错误码：**
 

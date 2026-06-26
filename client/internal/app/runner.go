@@ -92,6 +92,10 @@ func (a *App) startProxy(ctx context.Context) error {
 		Timeout:   15 * time.Second,
 	}
 
+	transport.InitPool(relayCfg, 3)
+	go transport.WarmPool(ctx)
+	defer transport.ClosePool()
+
 	var wg sync.WaitGroup
 	errCh := make(chan error, 2)
 

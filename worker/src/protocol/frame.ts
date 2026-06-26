@@ -10,6 +10,8 @@ export const FrameType = {
   PONG: 4,
   CLOSE: 5,
   ERROR: 6,
+  SESSION: 7,
+  SESSION_OK: 8,
 } as const;
 
 export type FrameTypeValue = (typeof FrameType)[keyof typeof FrameType];
@@ -27,6 +29,7 @@ export interface Frame {
   version: number;
   type: FrameTypeValue;
   flags: number;
+  streamId?: number;
   payload: Uint8Array;
 }
 
