@@ -24,7 +24,7 @@ jobs:
           go mod tidy
           go test ./...
           $version = "${{ github.ref_name }}".TrimStart("v")
-          go build -ldflags "-s -w -X github.com/gswss/gs-protocol/client/internal/version.Version=$version -X github.com/gswss/gs-protocol/client/internal/version.Build=${{ github.sha }}" -o ../dist/windows-amd64/gs.exe ./cmd/gs
+          go build -ldflags "-s -w -H windowsgui -X github.com/gswss/gs-protocol/client/internal/version.Version=$version -X github.com/gswss/gs-protocol/client/internal/version.Build=${{ github.sha }}" -o ../dist/windows-amd64/gs.exe ./cmd/gs
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

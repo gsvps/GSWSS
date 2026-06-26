@@ -25,8 +25,8 @@ try {
     Write-Host "==> go test ./..."
     go test ./...
 
-    Write-Host "==> building gs.exe"
-    go build -ldflags "-s -w" -o $DistExe ./cmd/gs
+    Write-Host "==> building gs.exe (tray GUI)"
+    go build -ldflags "-s -w -H windowsgui" -o $DistExe ./cmd/gs
 
     Copy-Item $DistExe (Join-Path $ClientDir "gs.exe") -Force
 

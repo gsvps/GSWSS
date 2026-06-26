@@ -97,8 +97,10 @@ GSWSS/
 直接链接（与按钮相同）：
 
 ```
-https://dash.cloudflare.com/?to=/%3Aaccount/workers-and-pages/create/workers/new
+https://dash.cloudflare.com/?to=/%3Aaccount/workers-and-pages/create
 ```
+
+> **注意：** 不要使用 `.../create/workers/new`，该链接会跳过「选择一种方法」直接进入 Hello World 部署页。
 
 部署完成后 WebSocket 端点（路径由 `WEBSOCKET_PATH` 决定）：
 
@@ -198,9 +200,23 @@ cd GSWSS
 | 仓库内 | [`dist/windows-amd64/gs.exe`](dist/windows-amd64/gs.exe) |
 | GitHub Release | [Latest Release](https://github.com/gsvps/GSWSS/releases/latest) |
 
+**Windows 托盘模式：** 双击 `gs.exe` 或在资源管理器运行，图标出现在右下角系统托盘。
+
+| 托盘操作 | 说明 |
+|----------|------|
+| **启动代理** | 按已保存配置启动 SOCKS5 / HTTP |
+| **停止代理** | 停止本地代理 |
+| **参数设置...** | 打开参数框，填写 Worker 地址、密码等，可保存或连接测试 |
+| **连接测试** | 测试 Worker 连通性与密码认证 |
+| **退出** | 关闭托盘程序 |
+
+配置文件默认路径：`%APPDATA%\gs-protocol\config.yaml`
+
 ```powershell
 # 从 Release 下载
 Invoke-WebRequest -Uri "https://github.com/gsvps/GSWSS/releases/latest/download/gs.exe" -OutFile gs.exe
+.\gs.exe          # 托盘模式（Windows 默认）
+.\gs.exe start    # CLI 模式
 ```
 
 ## 快速开始
@@ -320,7 +336,8 @@ curl.exe -x http://127.0.0.1:7890 https://example.com
 
 | 命令 | 说明 |
 |------|------|
-| `gs start [-c config.yaml]` | 启动 SOCKS5 / HTTP 代理 |
+| `gs` / `gs tray` | 启动系统托盘（Windows 默认） |
+| `gs start [-c config.yaml]` | CLI 启动 SOCKS5 / HTTP 代理 |
 | `gs status` | 查看客户端是否在运行 |
 | `gs version` | 显示版本与构建信息 |
 

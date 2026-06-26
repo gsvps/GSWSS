@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -12,12 +13,16 @@ import (
 	"github.com/gswss/gs-protocol/client/internal/app"
 	"github.com/gswss/gs-protocol/client/internal/config"
 	"github.com/gswss/gs-protocol/client/internal/log"
+	"github.com/gswss/gs-protocol/client/internal/tray"
 	"github.com/gswss/gs-protocol/client/internal/version"
 )
 
 var configPath string
 
 func main() {
+	if runtime.GOOS == "windows" && len(os.Args) == 1 {
+		os.Args = append(os.Args, "tray")
+	}
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
@@ -26,6 +31,14 @@ func main() {
 var rootCmd = &cobra.Command{
 	Use:   "gs",
 	Short: "GS Protocol client — secure transport proxy",
+}
+
+var trayCmd = &cobra.Command{
+	Use:   "tray",
+	Short: "Run GSWSS in the system tray (Windows)",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return tray.Run(configPath)
+	},
 }
 
 var startCmd = &cobra.Command{
@@ -76,5 +89,5 @@ var versionCmd = &cobra.Command{
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "config.yaml", "path to config file")
-	rootCmd.AddCommand(startCmd, statusCmd, versionCmd)
+	rootCmd.AddCommand(trayCmd, startCmd, statusCmd, versionCmd)
 }

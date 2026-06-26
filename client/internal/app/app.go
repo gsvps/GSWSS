@@ -6,16 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
-	"time"
-
-	"go.uber.org/zap"
 
 	"github.com/gswss/gs-protocol/client/internal/config"
-	httpproxy "github.com/gswss/gs-protocol/client/internal/proxy/httpproxy"
-	"github.com/gswss/gs-protocol/client/internal/proxy/socks"
-	"github.com/gswss/gs-protocol/client/internal/log"
-	"github.com/gswss/gs-protocol/client/internal/transport"
 )
 
 const pidFileName = "gs-client.pid"
@@ -40,52 +32,7 @@ func (a *App) Start(ctx context.Context) error {
 		return err
 	}
 	defer a.removePID()
-
-	relayCfg := transport.RelayConfig{
-		ServerURL: a.cfg.Server,
-		Password:  a.cfg.Password,
-		UseTLS:    a.cfg.TLS,
-		Timeout:   15 * time.Second,
-	}
-
-	var wg sync.WaitGroup
-	errCh := make(chan error, 2)
-
-	if a.cfg.LocalSocks != "" {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			srv := &socks.Server{ListenAddr: a.cfg.LocalSocks, Relay: relayCfg}
-			if err := srv.ListenAndServe(ctx); err != nil {
-				errCh <- fmt.Errorf("socks: %w", err)
-			}
-		}()
-	}
-
-	if a.cfg.LocalHTTP != "" {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			srv := &httpproxy.Server{ListenAddr: a.cfg.LocalHTTP, Relay: relayCfg}
-			if err := srv.ListenAndServe(ctx); err != nil {
-				errCh <- fmt.Errorf("http: %w", err)
-			}
-		}()
-	}
-
-	log.L().Info("GS client started",
-		zap.String("server", a.cfg.Server),
-		zap.String("socks", a.cfg.LocalSocks),
-		zap.String("http", a.cfg.LocalHTTP),
-	)
-
-	select {
-	case <-ctx.Done():
-		wg.Wait()
-		return nil
-	case err := <-errCh:
-		return err
-	}
+	return a.startProxy(ctx)
 }
 
 // Status returns whether the client is running.
