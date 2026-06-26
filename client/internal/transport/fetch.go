@@ -152,7 +152,9 @@ func requestURL(req *http.Request) string {
 		}
 	}
 	scheme := "http"
-	if req.TLS != nil || strings.HasSuffix(host, ":443") {
+	if req.URL != nil && req.URL.Scheme == "https" {
+		scheme = "https"
+	} else if req.TLS != nil || strings.HasSuffix(host, ":443") {
 		scheme = "https"
 	}
 	if strings.Contains(host, ":443") {

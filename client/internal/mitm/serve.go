@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 
 	"go.uber.org/zap"
 
@@ -48,10 +49,14 @@ func ServeHTTPS(ctx context.Context, conn net.Conn, host string, cfg transport.R
 			return
 		}
 
-		req.URL.Scheme = "https"
+		if req.URL == nil {
+			req.URL = &url.URL{}
+		}
 		if req.Host == "" {
 			req.Host = host
 		}
+		req.URL.Scheme = "https"
+		req.URL.Host = req.Host
 		req.RequestURI = ""
 		req.Header.Del("Proxy-Connection")
 

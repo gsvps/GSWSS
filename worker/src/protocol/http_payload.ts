@@ -12,48 +12,37 @@ export interface HTTPRespPayload {
   body: Uint8Array;
 }
 
+function pushU16(out: number[], n: number): void {
+  out.push((n >> 8) & 0xff, n & 0xff);
+}
+
+function pushU32(out: number[], n: number): void {
+  out.push((n >> 24) & 0xff, (n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff);
+}
+
+function pushString(out: number[], s: string): void {
+  const bytes = new TextEncoder().encode(s);
+  pushU16(out, bytes.length);
+  for (const b of bytes) {
+    out.push(b);
+  }
+}
+
 export function encodeHTTPReqPayload(p: HTTPReqPayload): Uint8Array {
-  const parts: number[] = [];
-  const chunks: Uint8Array[] = [];
-
-  const pushString = (s: string) => {
-    const bytes = new TextEncoder().encode(s);
-    parts.push((bytes.length >> 8) & 0xff, bytes.length & 0xff);
-    chunks.push(bytes);
-  };
-
-  pushString(p.password);
-  pushString(p.method);
-  pushString(p.url);
-
-  parts.push((p.headers.length >> 8) & 0xff, p.headers.length & 0xff);
+  const out: number[] = [];
+  pushString(out, p.password);
+  pushString(out, p.method);
+  pushString(out, p.url);
+  pushU16(out, p.headers.length);
   for (const [k, v] of p.headers) {
-    pushString(k);
-    pushString(v);
+    pushString(out, k);
+    pushString(out, v);
   }
-
-  const bodyLen = p.body.length;
-  parts.push(
-    (bodyLen >> 24) & 0xff,
-    (bodyLen >> 16) & 0xff,
-    (bodyLen >> 8) & 0xff,
-    bodyLen & 0xff,
-  );
-
-  const header = new Uint8Array(parts);
-  const totalLen = header.length + chunks.reduce((n, c) => n + c.length, 0) + bodyLen;
-  const out = new Uint8Array(totalLen);
-  let off = 0;
-  out.set(header, off);
-  off += header.length;
-  for (const c of chunks) {
-    out.set(c, off);
-    off += c.length;
+  pushU32(out, p.body.length);
+  for (const b of p.body) {
+    out.push(b);
   }
-  if (bodyLen > 0) {
-    out.set(p.body, off);
-  }
-  return out;
+  return new Uint8Array(out);
 }
 
 export function decodeHTTPReqPayload(data: Uint8Array): HTTPReqPayload {
@@ -102,44 +91,18 @@ export function decodeHTTPReqPayload(data: Uint8Array): HTTPReqPayload {
 }
 
 export function encodeHTTPRespPayload(p: HTTPRespPayload): Uint8Array {
-  const parts: number[] = [];
-  const chunks: Uint8Array[] = [];
-
-  const pushString = (s: string) => {
-    const bytes = new TextEncoder().encode(s);
-    parts.push((bytes.length >> 8) & 0xff, bytes.length & 0xff);
-    chunks.push(bytes);
-  };
-
-  parts.push((p.status >> 8) & 0xff, p.status & 0xff);
-  parts.push((p.headers.length >> 8) & 0xff, p.headers.length & 0xff);
+  const out: number[] = [];
+  pushU16(out, p.status);
+  pushU16(out, p.headers.length);
   for (const [k, v] of p.headers) {
-    pushString(k);
-    pushString(v);
+    pushString(out, k);
+    pushString(out, v);
   }
-
-  const bodyLen = p.body.length;
-  parts.push(
-    (bodyLen >> 24) & 0xff,
-    (bodyLen >> 16) & 0xff,
-    (bodyLen >> 8) & 0xff,
-    bodyLen & 0xff,
-  );
-
-  const header = new Uint8Array(parts);
-  const totalLen = header.length + chunks.reduce((n, c) => n + c.length, 0) + bodyLen;
-  const out = new Uint8Array(totalLen);
-  let off = 0;
-  out.set(header, off);
-  off += header.length;
-  for (const c of chunks) {
-    out.set(c, off);
-    off += c.length;
+  pushU32(out, p.body.length);
+  for (const b of p.body) {
+    out.push(b);
   }
-  if (bodyLen > 0) {
-    out.set(p.body, off);
-  }
-  return out;
+  return new Uint8Array(out);
 }
 
 export function decodeHTTPRespPayload(data: Uint8Array): HTTPRespPayload {
