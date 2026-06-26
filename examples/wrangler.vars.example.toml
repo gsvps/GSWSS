@@ -1,0 +1,5 @@
+# GSWSS Worker 环境变量（wrangler.toml [vars]）
+
+[vars]
+WEBSOCKET_PATH = "/proxy"
+PASSWORD = "your-secret-password"

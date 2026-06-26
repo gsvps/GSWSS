@@ -51,12 +51,18 @@ try {
         if (-not $Password) { Write-Host "密码不能为空" -ForegroundColor Red; exit 1 }
     }
 
-    Write-Step "设置 PASSWORD Secret"
-    $Password | npx wrangler secret put PASSWORD
-
-    Write-Step "部署 Worker (npm run deploy)"
-    $deployOutput = npm run deploy 2>&1 | Out-String
+    Write-Step "部署 Worker（PASSWORD 写入 Worker 变量）"
+    $deployOutput = npm run deploy -- --var "PASSWORD:$Password" 2>&1 | Out-String
     Write-Host $deployOutput
+
+    $wsPath = "/ws"
+    $tomlPath = Join-Path $Root "wrangler.toml"
+    if (Test-Path $tomlPath) {
+        $toml = Get-Content $tomlPath -Raw
+        if ($toml -match 'WEBSOCKET_PATH\s*=\s*"([^"]+)"') {
+            $wsPath = $Matches[1]
+        }
+    }
 
     $workerUrl = ""
     if ($deployOutput -match "https://[^\s]+\.workers\.dev") {
@@ -67,7 +73,7 @@ try {
         $workerUrl = $workerUrl.TrimEnd("/")
     }
 
-    $wsUrl = "$workerUrl/ws"
+    $wsUrl = "$workerUrl$wsPath"
     $info = @"
 GSWSS Worker 部署信息
 =====================
@@ -76,7 +82,7 @@ WebSocket:  $wsUrl
 
 客户端 config.yaml:
   server: $wsUrl
-  password: <与 PASSWORD Secret 一致>
+  password: <与 wrangler.toml [vars] PASSWORD 一致>
 "@
     Set-Content -Path $DeployInfo -Value $info -Encoding UTF8
 

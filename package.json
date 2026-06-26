@@ -16,8 +16,11 @@
   "cloudflare": {
     "products": ["Workers"],
     "bindings": {
+      "WEBSOCKET_PATH": {
+        "description": "WebSocket 入口路径，默认 `/ws`。可改为 `/proxy` 等；客户端 `server` 须包含完整路径，例如 `https://xxx.workers.dev/proxy`。"
+      },
       "PASSWORD": {
-        "description": "GS Protocol 认证密码，客户端 `config.yaml` 中的 `password` 须与此一致。建议使用 `openssl rand -hex 16` 生成。"
+        "description": "GS Protocol 认证密码，客户端 `config.yaml` 中的 `password` 须与此一致。部署前请修改为强密码，建议使用 `openssl rand -hex 16` 生成。"
       }
     }
   },

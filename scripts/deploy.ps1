@@ -83,11 +83,8 @@ if (-not $SkipWorker) {
         Write-Host "安装 npm 依赖..."
         npm install --silent
 
-        Write-Host "设置 PASSWORD Secret..."
-        $Password | npx wrangler secret put PASSWORD
-
-        Write-Host "部署 Worker..."
-        $deployOutput = npm run deploy 2>&1 | Out-String
+        Write-Host "设置 PASSWORD（写入 Worker 变量）..."
+        $deployOutput = npm run deploy -- --var "PASSWORD:$Password" 2>&1 | Out-String
         Write-Host $deployOutput
 
         if ($deployOutput -match "https://[^\s]+\.workers\.dev") {

@@ -12,6 +12,7 @@ import { checkRateLimit, resetRateLimit } from "../auth/rateLimit";
 
 export interface Env {
   PASSWORD: string;
+  WEBSOCKET_PATH?: string;
 }
 
 export async function handleWebSocket(request: Request, env: Env): Promise<Response> {

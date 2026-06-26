@@ -78,7 +78,7 @@ GSWSS/
 
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/gsvps/GSWSS/tree/main)
 
-> 部署时在配置页填写 **PASSWORD** Secret（认证密码，客户端 `config.yaml` 须一致）。**Worker 名称**默认留空，由你在部署页自行填写。
+> 部署时在配置页确认 **`wrangler.toml` → `[vars]`** 中的 **PASSWORD** 和 **WEBSOCKET_PATH**（入口路径，默认 `/ws`，可改为 `/proxy`）。**Worker 名称**留空，由你在部署页自行填写。
 
 > **若提示「已存在具有该名称的存储库」**  
 > 一键部署会在你的 GitHub 下**新建 fork 仓库**。请在部署页自行填写 Git 仓库名称（例如 `my-gswss`）。
@@ -91,15 +91,18 @@ GSWSS/
 | 配置项 | 说明 |
 |--------|------|
 | **Worker 名称** | 留空，部署页自行填写 |
-| **PASSWORD** | Secret，部署页填写（客户端认证密码） |
+| **WEBSOCKET_PATH** | 入口路径，默认 `/ws`，可改为 `/proxy` |
+| **PASSWORD** | 认证密码，客户端 `config.yaml` 须一致 |
 | **Deploy command** | `npm run deploy`（`package.json`） |
 | **Node.js 版本** | `22`（`.nvmrc` / `engines.node`） |
-| **根目录** | 留空（仓库根目录，非 monorepo 子目录） |
+| **根目录** | 留空（仓库根目录） |
 
-部署完成后 WebSocket 端点：
+部署完成后 WebSocket 端点（路径由 `WEBSOCKET_PATH` 决定）：
 
 ```
 https://<your-worker>.workers.dev/ws
+# 若 WEBSOCKET_PATH = "/proxy" 则为：
+# https://<your-worker>.workers.dev/proxy
 ```
 
 ### 高级设置默认值
@@ -118,9 +121,9 @@ https://<your-worker>.workers.dev/ws
 ```powershell
 git clone https://github.com/gsvps/GSWSS.git
 cd GSWSS
+# 编辑 wrangler.toml [vars] 中的 WEBSOCKET_PATH 与 PASSWORD
 npm install
 npx wrangler login
-npx wrangler secret put PASSWORD
 npm run deploy:cloudflare
 ```
 
@@ -206,7 +209,7 @@ cd GSWSS
 ```powershell
 npm install
 npx wrangler login
-npx wrangler secret put PASSWORD
+# 编辑 wrangler.toml [vars] 中的 PASSWORD 与 WEBSOCKET_PATH
 npm run deploy:cloudflare
 ```
 
@@ -216,7 +219,7 @@ npm run deploy:cloudflare
 https://<your-worker>.workers.dev/ws
 ```
 
-> **说明：** `PASSWORD` 通过 Wrangler Secret 注入，不会写入代码或日志。详见 [Cloudflare TCP Sockets 文档](https://developers.cloudflare.com/workers/runtime-apis/tcp-sockets/)。
+> **说明：** `PASSWORD` 与 `WEBSOCKET_PATH` 在根目录 `wrangler.toml` 的 `[vars]` 中配置。详见 [Cloudflare TCP Sockets 文档](https://developers.cloudflare.com/workers/runtime-apis/tcp-sockets/)。
 
 ### 3. 构建 Windows 客户端
 
@@ -252,7 +255,9 @@ notepad config.yaml
 配置示例：
 
 ```yaml
+# server 路径须与 wrangler.toml [vars] WEBSOCKET_PATH 一致
 server: https://your-worker.workers.dev/ws
+# 须与 wrangler.toml [vars] PASSWORD 一致
 password: your-secret-password
 local_socks: 127.0.0.1:1080
 local_http: 127.0.0.1:7890
@@ -263,8 +268,8 @@ log_level: info
 
 | 字段 | 说明 | 默认值 |
 |------|------|--------|
-| `server` | Worker WebSocket 地址（必填） | — |
-| `password` | 与 Worker Secret 一致的密码（必填） | — |
+| `server` | Worker WebSocket 地址（必填，路径须与 Worker `WEBSOCKET_PATH` 一致） | — |
+| `password` | 与 `wrangler.toml` `[vars]` 中 `PASSWORD` 一致（必填） | — |
 | `local_socks` | 本地 SOCKS5 监听地址 | `127.0.0.1:1080` |
 | `local_http` | 本地 HTTP 代理监听地址 | `127.0.0.1:7890` |
 | `tls` | 是否使用 WSS | `true` |
@@ -360,8 +365,8 @@ Worker 路由：
 
 | 路径 | 说明 |
 |------|------|
-| `GET /` | 健康检查 |
-| `GET /ws` | WebSocket 升级与 GSP1 中继 |
+| `GET /` | 健康检查（显示当前 `WEBSOCKET_PATH`） |
+| `GET {WEBSOCKET_PATH}` | WebSocket 升级与 GSP1 中继（默认 `/ws`） |
 
 ## 路线图
 
@@ -385,11 +390,11 @@ Worker 路由：
 
 **Q: 连接 Worker 失败？**
 
-确认 `server` 地址包含 `/ws` 路径，且 Worker 已成功部署。检查 Cloudflare 控制台中 Worker 的运行状态。
+确认 `server` 地址路径与 Worker `WEBSOCKET_PATH` 一致（默认 `/ws`），且 Worker 已成功部署。
 
 **Q: 认证失败？**
 
-确认客户端 `password` 与 `wrangler secret put PASSWORD` 设置的值完全一致。
+确认客户端 `password` 与 `wrangler.toml` `[vars]` 中 `PASSWORD` 完全一致。
 
 **Q: Go 依赖下载超时？**
 

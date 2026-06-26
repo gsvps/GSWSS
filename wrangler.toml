@@ -3,4 +3,8 @@
 main = "worker/src/index.ts"
 compatibility_date = "2025-03-01"
 
-# PASSWORD 通过 Secret 配置，见根目录 .dev.vars.example
+[vars]
+# WebSocket 入口路径（客户端 server 地址须包含此路径，例如 /proxy）
+WEBSOCKET_PATH = "/ws"
+# 认证密码（客户端 config.yaml 中的 password 须与此一致，部署前请修改）
+PASSWORD = "change-me"

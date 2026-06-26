@@ -5,4 +5,5 @@ compatibility_date = "2025-03-01"
 # 本地开发使用此 wrangler.toml；生产/一键部署请使用仓库根目录 wrangler.toml
 
 [vars]
-# Set PASSWORD via wrangler secret put PASSWORD
+WEBSOCKET_PATH = "/ws"
+PASSWORD = "change-me"

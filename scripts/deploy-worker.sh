@@ -29,10 +29,7 @@ if [ -z "$PASSWORD" ]; then
   echo ""
 fi
 
-echo "==> wrangler secret put PASSWORD"
-printf '%s' "$PASSWORD" | npx wrangler secret put PASSWORD
-
-echo "==> npm run deploy"
-npm run deploy
+echo "==> npm run deploy (PASSWORD via --var)"
+npm run deploy -- --var "PASSWORD:$PASSWORD"
 
 echo "WebSocket 端点: https://<your-worker>.workers.dev/ws"
