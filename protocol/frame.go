@@ -26,6 +26,8 @@ const (
 	TypePong    uint8 = 4
 	TypeClose   uint8 = 5
 	TypeError   uint8 = 6
+	TypeHTTPReq  uint8 = 9
+	TypeHTTPResp uint8 = 10
 )
 
 // Error codes returned in ERROR frames.

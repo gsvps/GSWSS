@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -12,6 +14,7 @@ import (
 	httpproxy "github.com/gswss/gs-protocol/client/internal/proxy/httpproxy"
 	"github.com/gswss/gs-protocol/client/internal/proxy/socks"
 	"github.com/gswss/gs-protocol/client/internal/log"
+	"github.com/gswss/gs-protocol/client/internal/mitm"
 	"github.com/gswss/gs-protocol/client/internal/transport"
 )
 
@@ -85,11 +88,29 @@ func (r *Runner) Stop() {
 }
 
 func (a *App) startProxy(ctx context.Context) error {
+	var mitmCA *mitm.CA
+	if a.cfg.Fetch {
+		dir, err := os.UserConfigDir()
+		if err != nil {
+			dir = os.TempDir()
+		}
+		caDir := filepath.Join(dir, "gs-protocol")
+		ca, certPath, err := mitm.LoadOrCreate(caDir)
+		if err != nil {
+			return fmt.Errorf("mitm ca: %w", err)
+		}
+		mitmCA = ca
+		log.L().Info("HTTPS fetch fallback enabled (MITM for blocked TCP targets)",
+			zap.String("trust_ca", certPath),
+		)
+	}
+
 	relayCfg := transport.RelayConfig{
 		ServerURL: a.cfg.Server,
 		Password:  a.cfg.Password,
 		UseTLS:    a.cfg.TLS,
 		UseMux:    a.cfg.Mux,
+		UseFetch:  a.cfg.Fetch,
 		Timeout:   15 * time.Second,
 	}
 
@@ -117,7 +138,7 @@ func (a *App) startProxy(ctx context.Context) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			srv := &httpproxy.Server{ListenAddr: a.cfg.LocalHTTP, Relay: relayCfg}
+			srv := &httpproxy.Server{ListenAddr: a.cfg.LocalHTTP, Relay: relayCfg, MITM: mitmCA}
 			if err := srv.ListenAndServe(ctx); err != nil {
 				errCh <- fmt.Errorf("http: %w", err)
 			}

@@ -17,6 +17,7 @@ type Config struct {
 	LocalHTTP  string        `mapstructure:"local_http"`
 	TLS        bool          `mapstructure:"tls"`
 	Mux        bool          `mapstructure:"mux"`
+	Fetch      bool          `mapstructure:"fetch"`
 	Heartbeat  time.Duration `mapstructure:"-"`
 	LogLevel   string        `mapstructure:"log_level"`
 }
@@ -28,6 +29,7 @@ type rawConfig struct {
 	LocalHTTP  string `mapstructure:"local_http"`
 	TLS        bool   `mapstructure:"tls"`
 	Mux        bool   `mapstructure:"mux"`
+	Fetch      bool   `mapstructure:"fetch"`
 	Heartbeat  int    `mapstructure:"heartbeat"`
 	LogLevel   string `mapstructure:"log_level"`
 }
@@ -38,6 +40,7 @@ func Default() Config {
 		LocalSocks: "127.0.0.1:1080",
 		LocalHTTP:  "127.0.0.1:7890",
 		TLS:        true,
+		Fetch:      true,
 		Heartbeat:  30 * time.Second,
 		LogLevel:   "info",
 	}
@@ -65,6 +68,11 @@ func Load(path string) (Config, error) {
 	cfg.LocalHTTP = raw.LocalHTTP
 	cfg.TLS = raw.TLS
 	cfg.Mux = raw.Mux
+	if !v.IsSet("fetch") {
+		cfg.Fetch = true
+	} else {
+		cfg.Fetch = raw.Fetch
+	}
 	cfg.LogLevel = raw.LogLevel
 	if raw.Heartbeat > 0 {
 		cfg.Heartbeat = time.Duration(raw.Heartbeat) * time.Second

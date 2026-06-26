@@ -24,6 +24,7 @@ type RelayConfig struct {
 	Password  string
 	UseTLS    bool
 	UseMux    bool
+	UseFetch  bool
 	Timeout   time.Duration
 }
 

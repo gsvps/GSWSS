@@ -17,6 +17,7 @@ import {
 } from "../protocol/frame_v2";
 import { authFailedMessage, validateTarget } from "../auth/validate";
 import { checkRateLimit, resetRateLimit } from "../auth/rateLimit";
+import { handleHTTPFetch } from "./fetch";
 
 export interface Env {
   PASSWORD: string;
@@ -285,6 +286,10 @@ async function handleV1Message(
   const frame = decodeFrame(bytes);
 
   if (!st.remote) {
+    if (frame.type === FrameType.HTTP_REQ) {
+      await handleHTTPFetch(ws, env, frame.payload);
+      return;
+    }
     if (frame.type !== FrameType.CONNECT) {
       sendErrorV1(ws, ErrorCode.INVALID_FRAME, "expected CONNECT frame");
       ws.close(1002, "protocol error");

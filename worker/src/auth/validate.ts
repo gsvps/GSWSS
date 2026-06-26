@@ -39,3 +39,17 @@ export function validateTarget(host: string, port: number): string | null {
 export function authFailedMessage(): { code: number; message: string } {
   return { code: ErrorCode.AUTH_FAILED, message: "authentication failed" };
 }
+
+export function validateFetchURL(rawURL: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(rawURL);
+  } catch {
+    return "invalid url";
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return "unsupported url scheme";
+  }
+  const port = url.port ? parseInt(url.port, 10) : url.protocol === "https:" ? 443 : 80;
+  return validateTarget(url.hostname, port);
+}

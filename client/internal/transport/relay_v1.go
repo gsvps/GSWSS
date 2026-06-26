@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"sync"
-	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/gswss/gs-protocol/protocol"
@@ -70,17 +69,10 @@ func copyToStreamV1(local net.Conn, remote *v1Conn) error {
 	for {
 		n, err := local.Read(buf)
 		if n > 0 {
-			end := n
-			if end < coalesceMin && err == nil {
-				_ = local.SetReadDeadline(time.Now().Add(coalesceWait))
-				n2, _ := local.Read(buf[end:])
-				_ = local.SetReadDeadline(time.Time{})
-				end += n2
-			}
 			frame, encErr := protocol.EncodeFrame(protocol.Frame{
 				Version: protocol.Version,
 				Type:    protocol.TypeData,
-				Payload: buf[:end],
+				Payload: buf[:n],
 			})
 			if encErr != nil {
 				return encErr

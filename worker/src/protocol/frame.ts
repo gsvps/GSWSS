@@ -12,6 +12,8 @@ export const FrameType = {
   ERROR: 6,
   SESSION: 7,
   SESSION_OK: 8,
+  HTTP_REQ: 9,
+  HTTP_RESP: 10,
 } as const;
 
 export type FrameTypeValue = (typeof FrameType)[keyof typeof FrameType];

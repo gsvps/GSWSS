@@ -8,12 +8,15 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 
 	"github.com/gswss/gs-protocol/client/internal/log"
+	"github.com/gswss/gs-protocol/client/internal/mitm"
 	"github.com/gswss/gs-protocol/client/internal/transport"
 )
 
@@ -21,6 +24,7 @@ import (
 type Server struct {
 	ListenAddr string
 	Relay      transport.RelayConfig
+	MITM       *mitm.CA
 }
 
 // ListenAndServe starts the HTTP proxy and blocks until ctx is cancelled.
@@ -84,17 +88,72 @@ func (s *Server) handleConn(ctx context.Context, conn net.Conn) {
 	case http.MethodConnect:
 		s.handleConnect(ctx, conn, host, port)
 	default:
-		s.handlePlainHTTP(ctx, conn, br, req, host, port)
+		if s.Relay.UseFetch {
+			s.handlePlainHTTPFetch(ctx, conn, req, host, port)
+		} else {
+			s.handlePlainHTTP(ctx, conn, br, req, host, port)
+		}
 	}
 }
 
 func (s *Server) handleConnect(ctx context.Context, conn net.Conn, host string, port uint16) {
+	if port == 443 && s.Relay.UseFetch && s.MITM != nil {
+		probeCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
+		err := transport.ProbeTCPRelay(probeCtx, s.Relay, host, port)
+		cancel()
+		if err != nil {
+			log.L().Debug("using fetch+MITM for CONNECT",
+				zap.String("host", host),
+				zap.Error(err),
+			)
+			if _, err := conn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n")); err != nil {
+				return
+			}
+			mitm.ServeHTTPS(ctx, conn, host, s.Relay, s.MITM)
+			return
+		}
+	}
+
 	if _, err := conn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n")); err != nil {
 		return
 	}
 	if err := transport.Relay(ctx, s.Relay, host, port, conn); err != nil && ctx.Err() == nil {
 		log.L().Debug("http connect relay ended", zap.Error(err))
 	}
+}
+
+func (s *Server) handlePlainHTTPFetch(ctx context.Context, conn net.Conn, req *http.Request, host string, port uint16) {
+	req.Header.Del("Proxy-Connection")
+	if req.URL == nil {
+		req.URL = &url.URL{}
+	}
+	if req.URL.Scheme == "" || req.URL.Host == "" {
+		scheme := "http"
+		if port == 443 {
+			scheme = "https"
+		}
+		req.URL.Scheme = scheme
+		req.URL.Host = req.Host
+		if req.URL.Host == "" {
+			req.URL.Host = host
+			if port != 80 && port != 443 {
+				req.URL.Host = net.JoinHostPort(host, fmt.Sprintf("%d", port))
+			}
+		}
+	}
+	req.RequestURI = ""
+
+	resp, err := transport.FetchHTTP(ctx, s.Relay, req)
+	if err != nil {
+		writeHTTPError(conn, http.StatusBadGateway, err.Error())
+		return
+	}
+	defer resp.Body.Close()
+
+	if err := resp.Write(conn); err != nil {
+		return
+	}
+	_, _ = io.Copy(conn, resp.Body)
 }
 
 func (s *Server) handlePlainHTTP(ctx context.Context, conn net.Conn, br *bufio.Reader, req *http.Request, host string, port uint16) {
@@ -129,7 +188,6 @@ func (s *Server) handlePlainHTTP(ctx context.Context, conn net.Conn, br *bufio.R
 	_, _ = io.Copy(conn, resp.Body)
 }
 
-// dialViaRelay opens a relay connection and returns the local side after CONNECT ack.
 func dialViaRelay(ctx context.Context, cfg transport.RelayConfig, host string, port uint16) (net.Conn, error) {
 	clientConn, serverConn := net.Pipe()
 	go func() {
@@ -140,6 +198,9 @@ func dialViaRelay(ctx context.Context, cfg transport.RelayConfig, host string, p
 
 func parseHostPort(req *http.Request) (string, uint16, error) {
 	host := req.Host
+	if host == "" && req.URL != nil {
+		host = req.URL.Host
+	}
 	if host == "" {
 		return "", 0, fmt.Errorf("missing Host header")
 	}
@@ -155,6 +216,9 @@ func parseHostPort(req *http.Request) (string, uint16, error) {
 		return h, portNum, nil
 	}
 	if req.Method == http.MethodConnect {
+		return host, 443, nil
+	}
+	if req.URL != nil && req.URL.Scheme == "https" {
 		return host, 443, nil
 	}
 	return host, 80, nil
