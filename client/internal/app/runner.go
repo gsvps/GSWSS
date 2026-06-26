@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -156,6 +157,19 @@ func (a *App) startProxy(ctx context.Context) error {
 		wg.Wait()
 		return nil
 	case err := <-errCh:
+		if strings.HasPrefix(err.Error(), "socks:") {
+			log.L().Warn("SOCKS5 proxy unavailable", zap.Error(err))
+			if a.cfg.LocalHTTP == "" {
+				return err
+			}
+			select {
+			case <-ctx.Done():
+				wg.Wait()
+				return nil
+			case err2 := <-errCh:
+				return err2
+			}
+		}
 		return err
 	}
 }
