@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { handleWebSocket, type Env } from "./handler/websocket";
-import { handleURLProxy, helpHTML } from "./handler/urlProxy";
+import { browseHTML, handleAuth, handleURLProxy } from "./handler/urlProxy";
 
 /** normalizePath ensures a leading slash and no trailing slash (except "/"). */
 export function normalizePath(path: string): string {
@@ -27,16 +27,16 @@ app.use("*", async (c, next) => {
   return next();
 });
 
-/** Simple URL proxy: /fetch?url=https://example.com&password=... */
+app.get("/auth", (c) => handleAuth(c.req.raw, c.env));
+
+/** Proxied content for iframe (HTML links rewritten to /fetch). */
 app.get("/fetch", (c) => handleURLProxy(c.req.raw, c.env));
 
-/** Same proxy via query on root: /?url=...&password=... */
-app.get("/", async (c) => {
+/** Browse shell with toolbar + iframe. */
+app.get("/", (c) => {
   const reqURL = new URL(c.req.url);
-  if (reqURL.searchParams.has("url")) {
-    return handleURLProxy(c.req.raw, c.env);
-  }
-  return c.html(helpHTML());
+  const initial = reqURL.searchParams.get("url") ?? undefined;
+  return c.html(browseHTML(initial));
 });
 
 app.notFound((c) => c.text("Not Found", 404));

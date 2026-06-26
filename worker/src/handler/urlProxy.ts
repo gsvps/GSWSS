@@ -1,5 +1,6 @@
 import { validateFetchURL } from "../auth/validate";
 import { checkRateLimit } from "../auth/rateLimit";
+import { isHTML, rewriteHTML } from "./htmlRewrite";
 
 export interface Env {
   PASSWORD: string;
@@ -15,9 +16,14 @@ const SKIP_RESP_HEADERS = new Set([
   "upgrade",
   "content-encoding",
   "content-length",
+  "content-security-policy",
+  "content-security-policy-report-only",
+  "x-frame-options",
 ]);
 
-/** handleURLProxy serves GET /fetch?url=...&password=... via Worker fetch(). */
+const COOKIE_NAME = "gs_pwd";
+
+/** handleURLProxy serves GET /fetch?url=... via Worker fetch() with HTML rewriting. */
 export async function handleURLProxy(request: Request, env: Env): Promise<Response> {
   const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
   if (!checkRateLimit(ip)) {
@@ -33,12 +39,9 @@ export async function handleURLProxy(request: Request, env: Env): Promise<Respon
     });
   }
 
-  const password =
-    reqURL.searchParams.get("password") ??
-    reqURL.searchParams.get("pwd") ??
-    parseBearer(request.headers.get("Authorization"));
-  if (!password || password !== env.PASSWORD) {
-    return new Response("Unauthorized: add ?password=YOUR_PASSWORD", { status: 401 });
+  const password = resolvePassword(request, reqURL, env);
+  if (!password) {
+    return new Response("Unauthorized: login at / or add ?password=YOUR_PASSWORD", { status: 401 });
   }
 
   const targetErr = validateFetchURL(target);
@@ -52,28 +55,98 @@ export async function handleURLProxy(request: Request, env: Env): Promise<Respon
       method: "GET",
       redirect: "follow",
       headers: {
-        "User-Agent": request.headers.get("User-Agent") ?? "GS-URL-Proxy/1.0",
-        Accept: request.headers.get("Accept") ?? "*/*",
+        "User-Agent":
+          request.headers.get("User-Agent") ??
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept: request.headers.get("Accept") ?? "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": request.headers.get("Accept-Language") ?? "en-US,en;q=0.9,zh-CN;q=0.8",
       },
     });
   } catch {
     return new Response("Failed to fetch target URL", { status: 502 });
   }
 
+  const contentType = upstream.headers.get("Content-Type");
+  const origin = reqURL.origin;
+  let body: BodyInit | null = upstream.body;
   const headers = new Headers();
-  upstream.headers.forEach((value, key) => {
-    if (!SKIP_RESP_HEADERS.has(key.toLowerCase())) {
-      headers.set(key, value);
-    }
-  });
+
+  if (isHTML(contentType) && upstream.body) {
+    const html = await upstream.text();
+    body = rewriteHTML(html, target, origin);
+    headers.set("Content-Type", "text/html; charset=utf-8");
+  } else {
+    upstream.headers.forEach((value, key) => {
+      if (!SKIP_RESP_HEADERS.has(key.toLowerCase())) {
+        headers.set(key, value);
+      }
+    });
+  }
+
   headers.set("X-GS-Proxy-Status", String(upstream.status));
   headers.set("X-GS-Proxy-URL", target);
+  headers.delete("x-frame-options");
+  headers.delete("content-security-policy");
 
-  return new Response(upstream.body, {
+  const fromQuery = reqURL.searchParams.get("password") ?? reqURL.searchParams.get("pwd");
+  if (fromQuery && fromQuery === env.PASSWORD) {
+    headers.append(
+      "Set-Cookie",
+      `${COOKIE_NAME}=${encodeURIComponent(fromQuery)}; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax`,
+    );
+  }
+
+  return new Response(body, {
     status: upstream.status,
     statusText: upstream.statusText,
     headers,
   });
+}
+
+/** handleAuth sets the password cookie and redirects back to browse shell. */
+export function handleAuth(request: Request, env: Env): Response {
+  const reqURL = new URL(request.url);
+  const password = reqURL.searchParams.get("password") ?? reqURL.searchParams.get("pwd");
+  const redirect = reqURL.searchParams.get("redirect") ?? "/";
+
+  if (!password || password !== env.PASSWORD) {
+    return new Response("Invalid password", { status: 401 });
+  }
+
+  const headers = new Headers({
+    Location: redirect,
+    "Set-Cookie": `${COOKIE_NAME}=${encodeURIComponent(password)}; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax`,
+  });
+  return new Response(null, { status: 302, headers });
+}
+
+function resolvePassword(request: Request, reqURL: URL, env: Env): string | null {
+  const fromQuery = reqURL.searchParams.get("password") ?? reqURL.searchParams.get("pwd");
+  if (fromQuery) {
+    return fromQuery === env.PASSWORD ? fromQuery : null;
+  }
+  const fromCookie = parseCookie(request.headers.get("Cookie"), COOKIE_NAME);
+  if (fromCookie && fromCookie === env.PASSWORD) {
+    return fromCookie;
+  }
+  const bearer = parseBearer(request.headers.get("Authorization"));
+  if (bearer && bearer === env.PASSWORD) {
+    return bearer;
+  }
+  return null;
+}
+
+function parseCookie(header: string | null, name: string): string | null {
+  if (!header) {
+    return null;
+  }
+  for (const part of header.split(";")) {
+    const [k, ...rest] = part.trim().split("=");
+    if (k === name) {
+      return decodeURIComponent(rest.join("="));
+    }
+  }
+  return null;
 }
 
 function parseBearer(auth: string | null): string | null {
@@ -85,57 +158,129 @@ function parseBearer(auth: string | null): string | null {
 }
 
 function helpText(): string {
-  const host = "https://test.gsvps.com";
-  return `GS URL Proxy — simple HTTP fetch via Worker
-
-Usage:
-  ${host}/fetch?url=<TARGET_URL>&password=<PASSWORD>
-
-Examples:
-  ${host}/fetch?url=https://www.google.com&password=YOUR_PASSWORD
-  ${host}/fetch?url=https://whoer.net&password=YOUR_PASSWORD
-  ${host}/fetch?url=https://www.cloudflare.com&password=YOUR_PASSWORD
-
-Also works on root:
-  ${host}/?url=https://example.com&password=YOUR_PASSWORD
-
-WebSocket (GS client): ${host}/ws
-Password: set in wrangler.toml / GitHub Secrets (not shown here).
-`;
+  return `Missing url parameter. Open / to use the browse frame.`;
 }
 
-export function helpHTML(): string {
+export function browseHTML(initialURL?: string): string {
+  const start = initialURL ? escapeJs(initialURL) : "https://www.google.com";
   return `<!DOCTYPE html>
 <html lang="zh">
 <head>
   <meta charset="utf-8"/>
-  <title>GS URL Proxy</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>GS Browse — URL Proxy</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
-    code { background: #f4f4f5; padding: 2px 6px; border-radius: 4px; }
-    input { width: 100%; padding: 8px; margin: 4px 0 12px; box-sizing: border-box; }
-    button { padding: 8px 16px; cursor: pointer; }
+    * { box-sizing: border-box; margin: 0; }
+    html, body { height: 100%; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    body { display: flex; flex-direction: column; background: #0f172a; color: #e2e8f0; }
+    #bar {
+      display: flex; gap: 8px; align-items: center; padding: 10px 12px;
+      background: #1e293b; border-bottom: 1px solid #334155; flex-shrink: 0;
+    }
+    #bar input[type=url], #bar input[type=password], #bar input[type=text] {
+      padding: 8px 12px; border: 1px solid #475569; border-radius: 8px;
+      background: #0f172a; color: #f8fafc; font-size: 14px;
+    }
+    #addr { flex: 1; min-width: 0; }
+    #pwd { width: 120px; }
+    button {
+      padding: 8px 14px; border: none; border-radius: 8px; cursor: pointer;
+      font-size: 13px; font-weight: 500; white-space: nowrap;
+    }
+    .btn-go { background: #2563eb; color: #fff; }
+    .btn-go:hover { background: #1d4ed8; }
+    .btn-site { background: #334155; color: #e2e8f0; }
+    .btn-site:hover { background: #475569; }
+    #frame-wrap { flex: 1; position: relative; background: #fff; }
+    #frame { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
+    #overlay {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: rgba(15,23,42,.92); z-index: 10;
+    }
+    #overlay.hidden { display: none; }
+    .card {
+      background: #1e293b; padding: 24px; border-radius: 12px; width: min(400px, 92vw);
+      box-shadow: 0 8px 32px rgba(0,0,0,.4);
+    }
+    .card h2 { margin-bottom: 12px; font-size: 18px; }
+    .card p { color: #94a3b8; font-size: 13px; margin-bottom: 16px; line-height: 1.5; }
+    .card label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 4px; }
+    .card input { width: 100%; margin-bottom: 12px; }
+    .hint { font-size: 12px; color: #64748b; margin-top: 12px; }
   </style>
 </head>
 <body>
-  <h1>GS URL Proxy</h1>
-  <p>在浏览器里直接测试 Worker <code>fetch()</code> 转发，无需本地客户端。</p>
-  <form id="f">
-    <label>目标 URL</label>
-    <input id="url" type="url" placeholder="https://whoer.net" required/>
-    <label>密码</label>
-    <input id="pwd" type="password" placeholder="change-me" required/>
-    <button type="submit">打开</button>
-  </form>
-  <p style="color:#666;font-size:14px">等价于：<code>/fetch?url=...&amp;password=...</code></p>
+  <div id="bar">
+    <button type="button" class="btn-site" data-url="https://www.google.com">Google</button>
+    <button type="button" class="btn-site" data-url="https://www.youtube.com">YouTube</button>
+    <button type="button" class="btn-site" data-url="https://www.cloudflare.com">Cloudflare</button>
+    <input id="addr" type="url" placeholder="https://..." value="https://www.google.com"/>
+    <button type="button" class="btn-go" id="btnGo">前往</button>
+  </div>
+  <div id="frame-wrap">
+    <div id="overlay">
+      <div class="card">
+        <h2>GS Browse</h2>
+        <p>在下方框架内通过 Worker fetch 浏览网页，链接会自动走代理。</p>
+        <label>密码</label>
+        <input id="pwd" type="password" placeholder="change-me" autocomplete="current-password"/>
+        <button type="button" class="btn-go" id="btnLogin" style="width:100%">登录并打开</button>
+        <p class="hint">与 config.yaml / wrangler PASSWORD 一致</p>
+      </div>
+    </div>
+    <iframe id="frame" title="GS Browse Frame" sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-downloads allow-modals"></iframe>
+  </div>
   <script>
-    document.getElementById("f").onsubmit = function(e) {
-      e.preventDefault();
-      var u = document.getElementById("url").value;
-      var p = document.getElementById("pwd").value;
-      location.href = "/fetch?url=" + encodeURIComponent(u) + "&password=" + encodeURIComponent(p);
-    };
+    var DEFAULT_URL = "${start}";
+    var frame = document.getElementById("frame");
+    var addr = document.getElementById("addr");
+    var overlay = document.getElementById("overlay");
+
+    function fetchSrc(url) {
+      return "/fetch?url=" + encodeURIComponent(url);
+    }
+
+    function navigate(url) {
+      if (!url) return;
+      if (!/^https?:\\/\\//i.test(url)) url = "https://" + url;
+      addr.value = url;
+      frame.src = fetchSrc(url);
+    }
+
+    function loginAndOpen() {
+      var pwd = document.getElementById("pwd").value;
+      if (!pwd) { alert("请输入密码"); return; }
+      var u = addr.value || DEFAULT_URL;
+      window.location.href = "/auth?password=" + encodeURIComponent(pwd) +
+        "&redirect=" + encodeURIComponent("/?url=" + encodeURIComponent(u) + "&authed=1");
+    }
+
+    document.getElementById("btnGo").onclick = function() { navigate(addr.value); };
+    document.getElementById("btnLogin").onclick = loginAndOpen;
+    document.querySelectorAll(".btn-site").forEach(function(btn) {
+      btn.onclick = function() {
+        addr.value = btn.getAttribute("data-url");
+        navigate(addr.value);
+      };
+    });
+    addr.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") navigate(addr.value);
+    });
+
+    (function init() {
+      var params = new URLSearchParams(location.search);
+      var start = params.get("url") || DEFAULT_URL;
+      addr.value = start;
+      if (params.has("authed")) {
+        overlay.classList.add("hidden");
+        navigate(start);
+      }
+    })();
   </script>
 </body>
 </html>`;
+}
+
+function escapeJs(s: string): string {
+  return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/'/g, "\\'");
 }
