@@ -2,9 +2,7 @@ name = "gs-protocol-worker"
 main = "src/index.ts"
 compatibility_date = "2025-03-01"
 
-# Git 连接部署时 Root directory 设为 worker/
-# Dashboard: Create application → Import a repository → 选择 GSWSS 仓库
-# Build command: (empty)  Deploy command: npx wrangler deploy
+# 本地开发使用此 wrangler.toml；生产/一键部署请使用仓库根目录 wrangler.toml
 
 [vars]
-# Set PASSWORD via wrangler secret put PASSWORD or Dashboard Secrets
+# Set PASSWORD via wrangler secret put PASSWORD

@@ -1,0 +1,6 @@
+# Cloudflare Workers 部署配置（一键部署读取此文件）
+# Worker 名称不在仓库中预填，部署页由用户自行填写
+main = "worker/src/index.ts"
+compatibility_date = "2025-03-01"
+
+# PASSWORD 通过 Secret 配置，见根目录 .dev.vars.example

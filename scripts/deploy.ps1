@@ -78,7 +78,7 @@ $workerUrl = ""
 # --- 部署 Worker ---
 if (-not $SkipWorker) {
     Write-Step "部署 Cloudflare Worker"
-    Push-Location $WorkerDir
+    Push-Location $Root
     try {
         Write-Host "安装 npm 依赖..."
         npm install --silent
@@ -87,7 +87,7 @@ if (-not $SkipWorker) {
         $Password | npx wrangler secret put PASSWORD
 
         Write-Host "部署 Worker..."
-        $deployOutput = npx wrangler deploy 2>&1 | Out-String
+        $deployOutput = npm run deploy 2>&1 | Out-String
         Write-Host $deployOutput
 
         if ($deployOutput -match "https://[^\s]+\.workers\.dev") {

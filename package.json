@@ -1,0 +1,32 @@
+{
+  "name": "gswss",
+  "version": "0.1.1",
+  "description": "GS Protocol — Cloudflare Workers 轻量级安全传输协议",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "wrangler dev --config wrangler.toml",
+    "deploy": "wrangler deploy --config wrangler.toml",
+    "deploy:cloudflare": "npm run deploy",
+    "typecheck": "tsc --noEmit -p worker/tsconfig.json"
+  },
+  "cloudflare": {
+    "products": ["Workers"],
+    "bindings": {
+      "PASSWORD": {
+        "description": "GS Protocol 认证密码，客户端 `config.yaml` 中的 `password` 须与此一致。建议使用 `openssl rand -hex 16` 生成。"
+      }
+    }
+  },
+  "dependencies": {
+    "hono": "^4.7.4"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250317.0",
+    "typescript": "^5.8.2",
+    "wrangler": "^4.4.0"
+  }
+}
