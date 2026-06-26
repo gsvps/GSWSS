@@ -1,6 +1,6 @@
 {
   "name": "gswss",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "GS Protocol — Cloudflare Workers 轻量级安全传输协议",
   "private": true,
   "type": "module",

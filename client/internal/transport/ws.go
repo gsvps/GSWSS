@@ -10,8 +10,12 @@ import (
 	"net/http"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/gorilla/websocket"
 	"github.com/gswss/gs-protocol/protocol"
+
+	"github.com/gswss/gs-protocol/client/internal/log"
 )
 
 // RelayConfig holds settings for a single relay session.
@@ -19,16 +23,22 @@ type RelayConfig struct {
 	ServerURL string
 	Password  string
 	UseTLS    bool
+	UseMux    bool
 	Timeout   time.Duration
 }
 
-// Relay establishes a GSP1 v2 multiplexed session and pipes data to localConn.
+// Relay establishes a GSP1 session and pipes data to localConn (v2 mux, v1 fallback on open failure).
 func Relay(ctx context.Context, cfg RelayConfig, targetHost string, targetPort uint16, localConn net.Conn) error {
 	defer localConn.Close()
 
+	if !cfg.UseMux {
+		return relayV1(ctx, cfg, targetHost, targetPort, localConn)
+	}
+
 	session, pooled, err := acquireSession(ctx, cfg)
 	if err != nil {
-		return err
+		log.L().Debug("v2 session failed, using v1", zap.Error(err))
+		return relayV1(ctx, cfg, targetHost, targetPort, localConn)
 	}
 	if !pooled {
 		defer session.Close()
@@ -36,14 +46,14 @@ func Relay(ctx context.Context, cfg RelayConfig, targetHost string, targetPort u
 
 	stream, err := session.OpenStream(ctx, targetHost, targetPort)
 	if err != nil {
-		return err
+		log.L().Debug("v2 stream open failed, using v1", zap.Error(err))
+		return relayV1(ctx, cfg, targetHost, targetPort, localConn)
 	}
 	defer stream.Close()
 
 	errCh := make(chan error, 2)
 	go func() { errCh <- copyToStream(localConn, stream) }()
 	go func() { errCh <- copyFromStream(stream, localConn) }()
-
 	var firstErr error
 	for i := 0; i < 2; i++ {
 		if err := <-errCh; err != nil && !isClosedErr(err) && firstErr == nil {

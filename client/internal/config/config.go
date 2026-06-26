@@ -16,6 +16,7 @@ type Config struct {
 	LocalSocks string        `mapstructure:"local_socks"`
 	LocalHTTP  string        `mapstructure:"local_http"`
 	TLS        bool          `mapstructure:"tls"`
+	Mux        bool          `mapstructure:"mux"`
 	Heartbeat  time.Duration `mapstructure:"-"`
 	LogLevel   string        `mapstructure:"log_level"`
 }
@@ -26,6 +27,7 @@ type rawConfig struct {
 	LocalSocks string `mapstructure:"local_socks"`
 	LocalHTTP  string `mapstructure:"local_http"`
 	TLS        bool   `mapstructure:"tls"`
+	Mux        bool   `mapstructure:"mux"`
 	Heartbeat  int    `mapstructure:"heartbeat"`
 	LogLevel   string `mapstructure:"log_level"`
 }
@@ -62,6 +64,7 @@ func Load(path string) (Config, error) {
 	cfg.LocalSocks = raw.LocalSocks
 	cfg.LocalHTTP = raw.LocalHTTP
 	cfg.TLS = raw.TLS
+	cfg.Mux = raw.Mux
 	cfg.LogLevel = raw.LogLevel
 	if raw.Heartbeat > 0 {
 		cfg.Heartbeat = time.Duration(raw.Heartbeat) * time.Second

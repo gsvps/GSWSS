@@ -89,12 +89,15 @@ func (a *App) startProxy(ctx context.Context) error {
 		ServerURL: a.cfg.Server,
 		Password:  a.cfg.Password,
 		UseTLS:    a.cfg.TLS,
+		UseMux:    a.cfg.Mux,
 		Timeout:   15 * time.Second,
 	}
 
-	transport.InitPool(relayCfg, 3)
-	go transport.WarmPool(ctx)
-	defer transport.ClosePool()
+	if a.cfg.Mux {
+		transport.InitPool(relayCfg, 3)
+		go transport.WarmPool(ctx)
+		defer transport.ClosePool()
+	}
 
 	var wg sync.WaitGroup
 	errCh := make(chan error, 2)

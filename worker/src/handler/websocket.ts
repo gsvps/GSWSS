@@ -23,8 +23,6 @@ export interface Env {
   WEBSOCKET_PATH?: string;
 }
 
-const BATCH_FLUSH = 16 * 1024;
-
 interface StreamState {
   socket: Socket;
   writer: WritableStreamDefaultWriter<Uint8Array>;
@@ -98,7 +96,21 @@ async function handleSession(ws: WebSocket, env: Env, ip: string): Promise<void>
   ws.addEventListener("close", cleanup);
   ws.addEventListener("error", cleanup);
 
-  ws.addEventListener("message", async (event) => {
+  let messageQueue: Promise<void> = Promise.resolve();
+
+  ws.addEventListener("message", (event) => {
+    messageQueue = messageQueue
+      .then(() => processMessage(event))
+      .catch(() => {
+        try {
+          ws.close(1011, "internal error");
+        } catch {
+          // ignore
+        }
+      });
+  });
+
+  async function processMessage(event: MessageEvent): Promise<void> {
     try {
       const data = event.data;
       if (!(data instanceof ArrayBuffer)) {
@@ -253,7 +265,7 @@ async function handleSession(ws: WebSocket, env: Env, ip: string): Promise<void>
       sendErrorV1(ws, ErrorCode.INVALID_FRAME, "invalid frame");
       ws.close(1002, "protocol error");
     }
-  });
+  }
 }
 
 interface V1State {
@@ -376,42 +388,10 @@ async function pipeRemoteToWSV2(
   streams: Map<number, StreamState>,
 ): Promise<void> {
   const reader = remote.readable.getReader();
-  let pending: Uint8Array[] = [];
-  let pendingLen = 0;
-
-  const flush = () => {
-    if (pendingLen === 0) {
-      return;
-    }
-    let payload: Uint8Array;
-    if (pending.length === 1) {
-      payload = pending[0];
-    } else {
-      payload = new Uint8Array(pendingLen);
-      let off = 0;
-      for (const chunk of pending) {
-        payload.set(chunk, off);
-        off += chunk.length;
-      }
-    }
-    pending = [];
-    pendingLen = 0;
-    ws.send(
-      encodeFrameV2({
-        version: 2,
-        type: FrameType.DATA,
-        flags: 0,
-        streamId,
-        payload,
-      }),
-    );
-  };
-
   try {
     while (!signal.aborted) {
       const { done, value } = await reader.read();
       if (done) {
-        flush();
         ws.send(
           encodeFrameV2({
             version: 2,
@@ -424,18 +404,21 @@ async function pipeRemoteToWSV2(
         streams.delete(streamId);
         return;
       }
-      pending.push(value);
-      pendingLen += value.length;
-      if (pendingLen >= BATCH_FLUSH) {
-        flush();
-      }
+      ws.send(
+        encodeFrameV2({
+          version: 2,
+          type: FrameType.DATA,
+          flags: 0,
+          streamId,
+          payload: value,
+        }),
+      );
     }
   } catch {
     if (!signal.aborted) {
       sendErrorV2(ws, streamId, ErrorCode.CONNECT_FAILED, "target connection error");
     }
   } finally {
-    flush();
     reader.releaseLock();
     streams.delete(streamId);
   }

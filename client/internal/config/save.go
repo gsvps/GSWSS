@@ -15,6 +15,7 @@ type fileConfig struct {
 	LocalSocks string `yaml:"local_socks"`
 	LocalHTTP  string `yaml:"local_http"`
 	TLS        bool   `yaml:"tls"`
+	Mux        bool   `yaml:"mux,omitempty"`
 	Heartbeat  int    `yaml:"heartbeat"`
 	LogLevel   string `yaml:"log_level"`
 }
@@ -51,6 +52,7 @@ func Save(path string, cfg Config) error {
 		LocalSocks: cfg.LocalSocks,
 		LocalHTTP:  cfg.LocalHTTP,
 		TLS:        cfg.TLS,
+		Mux:        cfg.Mux,
 		Heartbeat:  heartbeat,
 		LogLevel:   cfg.LogLevel,
 	})
