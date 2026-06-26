@@ -146,9 +146,39 @@ npm run deploy:cloudflare
 **Windows：** `.\scripts\deploy-worker.ps1`  
 **Linux / macOS：** `./scripts/deploy-worker.sh`
 
-### GitHub Actions
+### GitHub Actions 自动部署
 
-Fork 后配置 Secrets：`CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`、`WORKER_PASSWORD`（可选），推送 `main` 自动部署。
+推送 `main` 且改动 Worker 相关文件时，会自动运行 [Deploy Worker](.github/workflows/deploy-worker.yml)。
+
+**首次使用前，必须在 GitHub 仓库配置 Secrets**（否则 CI 会跳过部署，不会报错中断）：
+
+| Secret | 必填 | 说明 |
+|--------|------|------|
+| `CLOUDFLARE_API_TOKEN` | 是 | Cloudflare API Token |
+| `CLOUDFLARE_ACCOUNT_ID` | 是 | Cloudflare 账户 ID |
+| `WORKER_PASSWORD` | 否 | 覆盖 `wrangler.toml` 中的 `PASSWORD`；不填则使用仓库默认值 |
+
+**配置步骤：**
+
+1. **获取 Account ID**  
+   打开 [Cloudflare Dashboard](https://dash.cloudflare.com/) → 右侧 **Account ID** 复制。
+
+2. **创建 API Token**  
+   [Create Token](https://dash.cloudflare.com/profile/api-tokens) → **Create Custom Token**：
+   - Permissions：`Account` → `Cloudflare Workers Scripts` → **Edit**
+   - Account Resources：选择你的账户
+   - 创建后复制 Token（只显示一次）
+
+3. **写入 GitHub Secrets**  
+   仓库 → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**，分别添加：
+   - `CLOUDFLARE_API_TOKEN` = 上一步 Token
+   - `CLOUDFLARE_ACCOUNT_ID` = Account ID
+   - `WORKER_PASSWORD` = 与客户端一致的密码（建议设置）
+
+4. **手动触发一次部署（可选）**  
+   **Actions** → **Deploy Worker** → **Run workflow**
+
+本地也可手动部署：`npx wrangler login` 后执行 `npm run deploy`。
 
 ### 全栈部署（Worker + 客户端）
 
