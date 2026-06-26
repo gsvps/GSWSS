@@ -1,4 +1,4 @@
-# Cloudflare Workers 部署配置（一键部署读取此文件）
+name = "gswss"# Cloudflare Workers 部署配置（一键部署读取此文件）
 # Worker 名称不在仓库中预填，部署页由用户自行填写
 main = "worker/src/index.ts"
 compatibility_date = "2025-03-01"
