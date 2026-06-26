@@ -12,6 +12,7 @@ import (
 	"github.com/gswss/gs-protocol/client/internal/app"
 	"github.com/gswss/gs-protocol/client/internal/config"
 	"github.com/gswss/gs-protocol/client/internal/log"
+	"github.com/gswss/gs-protocol/client/internal/proxy/sysproxy"
 	"github.com/gswss/gs-protocol/client/internal/transport"
 )
 
@@ -73,6 +74,7 @@ func (s *trayState) onReady() {
 
 func (s *trayState) onExit() {
 	s.runner.Stop()
+	_ = sysproxy.Disable()
 	log.Sync()
 }
 
@@ -115,12 +117,22 @@ func (s *trayState) handleConnect() {
 		showError("启动失败", err.Error())
 		return
 	}
+	if cfg.LocalHTTP != "" {
+		if err := sysproxy.Enable(cfg.LocalHTTP); err != nil {
+			showError("系统代理设置失败", err.Error()+"\n\n请手动在 Windows 设置 → 网络 → 代理 中填写 HTTP 代理 "+cfg.LocalHTTP)
+		} else {
+			showInfo("代理已启动", fmt.Sprintf("本地 HTTP 代理: %s\nSOCKS5: %s\n\n已自动设置 Windows 系统代理。\n若仍无法上网，请关闭 v2rayN/Clash 等其它代理软件后重试。", cfg.LocalHTTP, cfg.LocalSocks))
+		}
+	}
 	s.setTooltip("运行中")
 	s.updateMenu()
 }
 
 func (s *trayState) handleStop() {
 	s.runner.Stop()
+	if err := sysproxy.Disable(); err != nil {
+		showError("恢复系统代理失败", err.Error())
+	}
 	s.setTooltip("已停止")
 	s.updateMenu()
 }
