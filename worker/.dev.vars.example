@@ -1,0 +1,4 @@
+# Worker 本地开发用，复制为 .dev.vars 后填入真实密码
+# Deploy to Cloudflare 按钮部署时，在控制台填写 PASSWORD Secret
+
+PASSWORD=your-secret-password

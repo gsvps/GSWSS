@@ -7,6 +7,13 @@
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit"
   },
+  "cloudflare": {
+    "bindings": {
+      "PASSWORD": {
+        "description": "GS Protocol 认证密码，客户端 `config.yaml` 中的 `password` 须与此一致。建议使用 `openssl rand -hex 16` 生成。"
+      }
+    }
+  },
   "dependencies": {
     "hono": "^4.7.4"
   },

@@ -18,6 +18,8 @@ client/gs
 worker/.wrangler/
 .wrangler/
 .dev.vars
+worker/.dev.vars
+worker/deploy-info.txt
 
 # Go
 *.test

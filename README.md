@@ -1,6 +1,7 @@
 # GSWSS — GS Protocol
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/gsvps/GSWSS/tree/main/worker)
 
 面向 [Cloudflare Workers](https://developers.cloudflare.com/workers/) 设计的轻量级安全传输协议（**GSP1**）。
 
@@ -56,7 +57,8 @@ GSWSS/
 ├── dist/            # 预编译客户端 (windows-amd64/gs.exe)
 ├── scripts/         # 构建与一键部署脚本
 │   ├── deploy.ps1           # 一键部署（Worker + 客户端 + 配置）
-│   ├── deploy-worker.ps1    # 仅部署 Worker
+│   ├── deploy-worker.ps1    # Worker 一键部署 (Windows)
+│   ├── deploy-worker.sh     # Worker 一键部署 (Linux/macOS)
 │   └── build-windows.ps1    # 构建 gs.exe
 ├── product.md       # 产品设计文档
 └── README.md
@@ -70,7 +72,67 @@ GSWSS/
 | Worker | Node.js 18+、Cloudflare 账号、[Wrangler](https://developers.cloudflare.com/workers/wrangler/) |
 | 平台 | Windows（首版）、macOS / Linux（Go 交叉编译） |
 
-## 一键部署（推荐）
+## Worker 一键部署
+
+部署 Worker 有三种方式，任选其一：
+
+### 方式 A — 浏览器一键部署（推荐，无需本地环境）
+
+点击 README 顶部的 **Deploy to Cloudflare Workers** 按钮，或访问：
+
+```
+https://deploy.workers.cloudflare.com/?url=https://github.com/gsvps/GSWSS/tree/main/worker
+```
+
+步骤：
+
+1. 登录 Cloudflare 账号
+2. 设置 Worker 名称
+3. 填写 **PASSWORD** Secret（认证密码，客户端须一致）
+4. 点击 Deploy
+
+部署完成后，WebSocket 端点为：
+
+```
+https://<your-worker>.workers.dev/ws
+```
+
+> 详见 [worker/README.md](worker/README.md) 与 [Cloudflare 部署按钮文档](https://developers.cloudflare.com/workers/platform/deploy-buttons/)。
+
+### 方式 B — 脚本一键部署
+
+**Windows：**
+
+```powershell
+git clone https://github.com/gsvps/GSWSS.git
+cd GSWSS
+.\scripts\deploy-worker.ps1              # 交互式部署
+.\scripts\deploy-worker.ps1 -StartLogin  # 首次使用，先登录 Cloudflare
+.\scripts\deploy-worker.ps1 -Password "your-secret-password"
+```
+
+**Linux / macOS：**
+
+```bash
+git clone https://github.com/gsvps/GSWSS.git
+cd GSWSS
+chmod +x scripts/deploy-worker.sh
+./scripts/deploy-worker.sh
+./scripts/deploy-worker.sh -l                    # 首次登录
+./scripts/deploy-worker.sh -p "your-secret-password"
+```
+
+脚本会自动：安装依赖 → 设置 `PASSWORD` Secret → `wrangler deploy` → 输出 WebSocket 地址。
+
+### 方式 C — 全栈一键部署（Worker + 客户端 + 配置）
+
+```powershell
+.\scripts\deploy.ps1
+```
+
+同时部署 Worker、构建/复制 `gs.exe`、生成 `client/config.yaml`。详见下方「一键部署（全栈）」。
+
+## 一键部署（全栈）
 
 克隆仓库后，一条命令完成 Worker 部署 + 客户端构建 + 配置生成：
 
@@ -103,12 +165,6 @@ cd GSWSS
 .\scripts\deploy.ps1 -Password "your-secret-password"
 ```
 
-仅部署 Worker：
-
-```powershell
-.\scripts\deploy-worker.ps1
-```
-
 ## 下载预编译客户端
 
 无需安装 Go，直接下载 `gs.exe`：
@@ -133,6 +189,10 @@ cd GSWSS
 ```
 
 ### 2. 部署 Cloudflare Worker
+
+推荐使用 [Worker 一键部署](#worker-一键部署)（浏览器按钮或 `deploy-worker.ps1`）。
+
+手动部署：
 
 ```powershell
 cd worker
