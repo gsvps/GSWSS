@@ -53,7 +53,11 @@ GSWSS/
 │   └── internal/    # transport / proxy / config / log
 ├── worker/          # Cloudflare Worker（TypeScript + Hono）
 ├── examples/        # 配置示例
-├── scripts/         # 构建脚本
+├── dist/            # 预编译客户端 (windows-amd64/gs.exe)
+├── scripts/         # 构建与一键部署脚本
+│   ├── deploy.ps1           # 一键部署（Worker + 客户端 + 配置）
+│   ├── deploy-worker.ps1    # 仅部署 Worker
+│   └── build-windows.ps1    # 构建 gs.exe
 ├── product.md       # 产品设计文档
 └── README.md
 ```
@@ -62,9 +66,62 @@ GSWSS/
 
 | 组件 | 要求 |
 |------|------|
-| 客户端 | Go 1.24+ |
+| 客户端 | Go 1.24+（或使用预编译 `gs.exe`） |
 | Worker | Node.js 18+、Cloudflare 账号、[Wrangler](https://developers.cloudflare.com/workers/wrangler/) |
 | 平台 | Windows（首版）、macOS / Linux（Go 交叉编译） |
+
+## 一键部署（推荐）
+
+克隆仓库后，一条命令完成 Worker 部署 + 客户端构建 + 配置生成：
+
+```powershell
+git clone https://github.com/gsvps/GSWSS.git
+cd GSWSS
+.\scripts\deploy.ps1
+```
+
+脚本会自动：
+
+1. 检查 Node.js / Go / wrangler 依赖
+2. 部署 Cloudflare Worker 并设置 `PASSWORD` Secret
+3. 构建 `gs.exe`（或从 `dist/` / GitHub Release 获取）
+4. 生成 `client/config.yaml`
+
+常用参数：
+
+```powershell
+# 部署完成后立即启动
+.\scripts\deploy.ps1 -Start
+
+# 跳过 Worker 部署（已有 Worker 时）
+.\scripts\deploy.ps1 -SkipWorker
+
+# 跳过构建，使用仓库内预编译 gs.exe
+.\scripts\deploy.ps1 -SkipBuild
+
+# 指定密码（非交互）
+.\scripts\deploy.ps1 -Password "your-secret-password"
+```
+
+仅部署 Worker：
+
+```powershell
+.\scripts\deploy-worker.ps1
+```
+
+## 下载预编译客户端
+
+无需安装 Go，直接下载 `gs.exe`：
+
+| 来源 | 链接 |
+|------|------|
+| 仓库内 | [`dist/windows-amd64/gs.exe`](dist/windows-amd64/gs.exe) |
+| GitHub Release | [Latest Release](https://github.com/gsvps/GSWSS/releases/latest) |
+
+```powershell
+# 从 Release 下载
+Invoke-WebRequest -Uri "https://github.com/gsvps/GSWSS/releases/latest/download/gs.exe" -OutFile gs.exe
+```
 
 ## 快速开始
 

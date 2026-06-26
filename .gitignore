@@ -2,13 +2,13 @@
 node_modules/
 worker/node_modules/
 
-# Build outputs
+# Build outputs (allow tracked release binaries under dist/)
 client/gs.exe
 client/gs
-*.exe
 *.dll
 *.so
 *.dylib
+!dist/**/*.exe
 
 # User config (may contain secrets)
 /config.yaml
