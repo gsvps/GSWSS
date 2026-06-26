@@ -107,7 +107,7 @@ func waitConnectAck(ctx context.Context, conn *wsConnWrapper) error {
 	deadline := time.Now().Add(10 * time.Second)
 	for {
 		if time.Now().After(deadline) {
-			return nil
+			return fmt.Errorf("connect ack timeout")
 		}
 		_ = conn.conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 		frame, err := conn.readFrame()
@@ -229,7 +229,11 @@ func (w *wsConnWrapper) readFrame() (protocol.Frame, error) {
 		if msgType != websocket.BinaryMessage {
 			continue
 		}
-		return protocol.DecodeFrame(newBytesReader(data))
+		frame, err := protocol.DecodeFrame(newBytesReader(data))
+		if err != nil {
+			return protocol.Frame{}, err
+		}
+		return frame, nil
 	}
 }
 

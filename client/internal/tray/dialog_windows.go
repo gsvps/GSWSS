@@ -52,7 +52,7 @@ func showSettingsDialogUI(cfg config.Config) (config.Config, bool) {
 						Text: "连接测试",
 						OnClicked: func() {
 							testCfg := readForm(serverEdit, passwordEdit, socksEdit, httpEdit, tlsCheck)
-							runTestDialogUI(testCfg)
+							runTestDialogUI(mw, testCfg)
 						},
 					},
 					HSpacer{},

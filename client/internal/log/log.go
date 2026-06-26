@@ -2,14 +2,35 @@
 package log
 
 import (
+	"os"
+	"path/filepath"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 var logger *zap.Logger
 
-// Init initializes the global logger with the given level.
+// Init initializes the global logger with the given level (stdout).
 func Init(level string) error {
+	return initLogger(level, []string{"stdout"}, []string{"stderr"})
+}
+
+// InitTray initializes logging to a file under the user config directory (for GUI tray mode).
+func InitTray(level string) error {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		dir = os.TempDir()
+	}
+	logDir := filepath.Join(dir, "gs-protocol")
+	if err := os.MkdirAll(logDir, 0o755); err != nil {
+		return err
+	}
+	logPath := filepath.Join(logDir, "gs-client.log")
+	return initLogger(level, []string{logPath}, []string{logPath})
+}
+
+func initLogger(level string, outputPaths, errorOutputPaths []string) error {
 	var zapLevel zapcore.Level
 	if err := zapLevel.UnmarshalText([]byte(level)); err != nil {
 		zapLevel = zapcore.InfoLevel
@@ -20,8 +41,8 @@ func Init(level string) error {
 		Development:      false,
 		Encoding:         "console",
 		EncoderConfig:    zap.NewDevelopmentEncoderConfig(),
-		OutputPaths:      []string{"stdout"},
-		ErrorOutputPaths: []string{"stderr"},
+		OutputPaths:      outputPaths,
+		ErrorOutputPaths: errorOutputPaths,
 	}
 	cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 

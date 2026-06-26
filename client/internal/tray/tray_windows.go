@@ -25,7 +25,7 @@ func Run(configPath string) error {
 	if err != nil {
 		return err
 	}
-	if err := log.Init(cfg.LogLevel); err != nil {
+	if err := log.InitTray(cfg.LogLevel); err != nil {
 		return err
 	}
 
@@ -95,6 +95,11 @@ func (s *trayState) eventLoop() {
 }
 
 func (s *trayState) handleConnect() {
+	defer func() {
+		if r := recover(); r != nil {
+			showError("启动失败", fmt.Sprintf("内部错误: %v", r))
+		}
+	}()
 	s.mu.Lock()
 	cfg := s.cfg
 	s.mu.Unlock()
@@ -121,22 +126,24 @@ func (s *trayState) handleStop() {
 }
 
 func (s *trayState) handleSettings() {
-	s.mu.Lock()
-	current := s.cfg
-	s.mu.Unlock()
+	go func() {
+		s.mu.Lock()
+		current := s.cfg
+		s.mu.Unlock()
 
-	updated, ok := showSettingsDialog(current)
-	if !ok {
-		return
-	}
-	if err := config.Save(s.configPath, updated); err != nil {
-		showError("保存失败", err.Error())
-		return
-	}
-	s.mu.Lock()
-	s.cfg = updated
-	s.mu.Unlock()
-	showInfo("已保存", fmt.Sprintf("配置已写入:\n%s", s.configPath))
+		updated, ok := showSettingsDialog(current)
+		if !ok {
+			return
+		}
+		if err := config.Save(s.configPath, updated); err != nil {
+			showError("保存失败", err.Error())
+			return
+		}
+		s.mu.Lock()
+		s.cfg = updated
+		s.mu.Unlock()
+		showInfo("已保存", fmt.Sprintf("配置已写入:\n%s", s.configPath))
+	}()
 }
 
 func (s *trayState) handleTest() {
@@ -148,6 +155,11 @@ func (s *trayState) handleTest() {
 		return
 	}
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				showError("连接测试失败", fmt.Sprintf("内部错误: %v", r))
+			}
+		}()
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
 		err := transport.TestWorker(ctx, transport.RelayConfig{
