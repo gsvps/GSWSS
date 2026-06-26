@@ -53,7 +53,7 @@ func TestWorker(ctx context.Context, cfg RelayConfig) error {
 		Type:    protocol.TypeConnect,
 		Payload: protocol.EncodeConnectPayload(protocol.ConnectPayload{
 			Host:     "example.com",
-			Port:     443,
+			Port:     80,
 			Password: cfg.Password,
 		}),
 	})

@@ -106,6 +106,7 @@ async function handleSession(ws: WebSocket, env: Env, ip: string): Promise<void>
             hostname: payload.host,
             port: payload.port,
           });
+          await socket.opened;
         } catch {
           sendError(ws, ErrorCode.CONNECT_FAILED, "failed to connect target");
           ws.close(1011, "connect failed");
@@ -116,8 +117,19 @@ async function handleSession(ws: WebSocket, env: Env, ip: string): Promise<void>
         remoteWriter = socket.writable.getWriter();
         resetRateLimit(ip);
         pipeAbort = new AbortController();
+
+        // CONNECT ack — client treats empty DATA as success
+        ws.send(
+          encodeFrame({
+            version: 1,
+            type: FrameType.DATA,
+            flags: 0,
+            payload: new Uint8Array(0),
+          }),
+        );
+
         pipeRemoteToWS(socket, ws, pipeAbort.signal);
-        startHeartbeat(ws);
+        heartbeatTimer = startHeartbeat(ws);
         return;
       }
 
@@ -165,14 +177,16 @@ async function pipeRemoteToWS(remote: Socket, ws: WebSocket, signal: AbortSignal
       );
     }
   } catch {
-    sendError(ws, ErrorCode.CONNECT_FAILED, "target connection error");
-    ws.close(1011, "target error");
+    if (!signal.aborted) {
+      sendError(ws, ErrorCode.CONNECT_FAILED, "target connection error");
+      ws.close(1011, "target error");
+    }
   } finally {
     reader.releaseLock();
   }
 }
 
-function startHeartbeat(ws: WebSocket): void {
+function startHeartbeat(ws: WebSocket): ReturnType<typeof setInterval> {
   const timer = setInterval(() => {
     try {
       ws.send(
@@ -187,6 +201,7 @@ function startHeartbeat(ws: WebSocket): void {
       clearInterval(timer);
     }
   }, 30_000);
+  return timer;
 }
 
 function sendError(ws: WebSocket, code: number, message: string): void {
