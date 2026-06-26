@@ -1,0 +1,17 @@
+# GS Protocol Client 配置示例
+# 复制为 config.yaml 并填入你的 Worker 地址与密码
+
+server: https://your-worker.workers.dev/ws
+
+password: your-secret-password
+
+local_socks: 127.0.0.1:1080
+
+local_http: 127.0.0.1:7890
+
+tls: true
+
+# 心跳间隔（秒）
+heartbeat: 30
+
+log_level: info

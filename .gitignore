@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+worker/node_modules/
+
+# Build outputs
+client/gs.exe
+client/gs
+*.exe
+*.dll
+*.so
+*.dylib
+
+# User config (may contain secrets)
+/config.yaml
+/client/config.yaml
+
+# Cloudflare
+worker/.wrangler/
+.wrangler/
+.dev.vars
+
+# Go
+*.test
+*.out
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
