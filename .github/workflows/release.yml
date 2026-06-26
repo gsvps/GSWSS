@@ -18,6 +18,12 @@ jobs:
         with:
           go-version: "1.24.x"
 
+      - name: Embed Windows manifest
+        working-directory: client
+        run: |
+          go install github.com/akavel/rsrc@v0.10.2
+          rsrc -manifest cmd/gs/app.manifest -o cmd/gs/rsrc.syso -arch amd64
+
       - name: Build gs.exe
         working-directory: client
         run: |

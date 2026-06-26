@@ -10,6 +10,15 @@ import (
 )
 
 func showSettingsDialog(cfg config.Config) (config.Config, bool) {
+	var result config.Config
+	var accepted bool
+	runOnUI(func() {
+		result, accepted = showSettingsDialogUI(cfg)
+	})
+	return result, accepted
+}
+
+func showSettingsDialogUI(cfg config.Config) (config.Config, bool) {
 	var (
 		mw           *walk.MainWindow
 		serverEdit   *walk.LineEdit
@@ -43,7 +52,7 @@ func showSettingsDialog(cfg config.Config) (config.Config, bool) {
 						Text: "连接测试",
 						OnClicked: func() {
 							testCfg := readForm(serverEdit, passwordEdit, socksEdit, httpEdit, tlsCheck)
-							runTestDialog(testCfg)
+							runTestDialogUI(testCfg)
 						},
 					},
 					HSpacer{},
@@ -59,7 +68,7 @@ func showSettingsDialog(cfg config.Config) (config.Config, bool) {
 						OnClicked: func() {
 							testCfg := readForm(serverEdit, passwordEdit, socksEdit, httpEdit, tlsCheck)
 							if err := config.Validate(testCfg); err != nil {
-								showError("参数无效", err.Error())
+								showErrorUI("参数无效", err.Error())
 								return
 							}
 							result = testCfg
@@ -71,7 +80,7 @@ func showSettingsDialog(cfg config.Config) (config.Config, bool) {
 			},
 		},
 	}.Create()); err != nil {
-		showError("打开设置", err.Error())
+		showErrorUI("打开设置", err.Error())
 		return cfg, false
 	}
 
@@ -80,20 +89,28 @@ func showSettingsDialog(cfg config.Config) (config.Config, bool) {
 }
 
 func readForm(server, password, socks, http *walk.LineEdit, tls *walk.CheckBox) config.Config {
-	cfg := config.Default()
-	cfg.Server = server.Text()
-	cfg.Password = password.Text()
-	cfg.LocalSocks = socks.Text()
-	cfg.LocalHTTP = http.Text()
-	cfg.TLS = tls.Checked()
-	cfg.LogLevel = "info"
-	return cfg
+	out := config.Default()
+	out.Server = server.Text()
+	out.Password = password.Text()
+	out.LocalSocks = socks.Text()
+	out.LocalHTTP = http.Text()
+	out.TLS = tls.Checked()
+	out.LogLevel = "info"
+	return out
 }
 
 func showInfo(title, msg string) {
-	walk.MsgBox(nil, title, msg, walk.MsgBoxIconInformation)
+	runOnUI(func() { showInfoUI(title, msg) })
 }
 
 func showError(title, msg string) {
+	runOnUI(func() { showErrorUI(title, msg) })
+}
+
+func showInfoUI(title, msg string) {
+	walk.MsgBox(nil, title, msg, walk.MsgBoxIconInformation)
+}
+
+func showErrorUI(title, msg string) {
 	walk.MsgBox(nil, title, msg, walk.MsgBoxIconError)
 }

@@ -5,6 +5,7 @@ worker/node_modules/
 # Build outputs (allow tracked release binaries under dist/)
 client/gs.exe
 client/gs
+client/cmd/gs/rsrc.syso
 *.dll
 *.so
 *.dylib

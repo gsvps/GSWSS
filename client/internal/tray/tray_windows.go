@@ -35,6 +35,7 @@ func Run(configPath string) error {
 		runner:     app.NewRunner(),
 	}
 
+	startUIThread()
 	systray.Run(func() { state.onReady() }, func() { state.onExit() })
 	return nil
 }
@@ -56,8 +57,8 @@ func (s *trayState) onReady() {
 	if len(iconData) > 0 {
 		systray.SetIcon(iconData)
 	}
-	systray.SetTitle("GSWSS")
-	systray.SetTooltip("GS Protocol Client")
+	systray.SetTitle("GS")
+	systray.SetTooltip("GSWSS — GS Protocol Client")
 
 	s.mConnect = systray.AddMenuItem("启动代理", "Start SOCKS5/HTTP proxy")
 	s.mStop = systray.AddMenuItem("停止代理", "Stop proxy")

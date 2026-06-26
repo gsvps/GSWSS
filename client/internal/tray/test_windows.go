@@ -11,8 +11,12 @@ import (
 )
 
 func runTestDialog(cfg config.Config) {
+	runOnUI(func() { runTestDialogUI(cfg) })
+}
+
+func runTestDialogUI(cfg config.Config) {
 	if err := config.Validate(cfg); err != nil {
-		showError("连接测试", err.Error())
+		showErrorUI("连接测试", err.Error())
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -24,8 +28,8 @@ func runTestDialog(cfg config.Config) {
 		Timeout:   15 * time.Second,
 	})
 	if err != nil {
-		showError("连接测试失败", err.Error())
+		showErrorUI("连接测试失败", err.Error())
 		return
 	}
-	showInfo("连接测试成功", "Worker 可达且认证通过")
+	showInfoUI("连接测试成功", "Worker 可达且认证通过")
 }
